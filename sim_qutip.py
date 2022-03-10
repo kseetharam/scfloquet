@@ -26,6 +26,7 @@ if __name__ == "__main__":
   lowfield = False
 
   spinach_datapath = '/Users/kis/Dropbox/NMR Learning/Code/matlab/spectrumSim/fid_data/'
+  print('test')
 
   sweep_Hz = 700; npoints = 4096; timestep = 1 / sweep_Hz
   gamma_1H = 2.6752 * 1e8; gamma_13C = 0.6728 * 1e8
