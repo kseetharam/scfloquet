@@ -220,6 +220,102 @@ def makeGenerators(JijList, hiList, N, gamma, decohType):
     return H, c_op_list
 
 
+def makeGenerators_sc(JijList, hiList, N, gamma, decohType):
+
+    JijList_sc, hiList_sc = scHamParams(JijList, hiList)
+
+    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
+    si_list = []
+    sx_list = []
+    sy_list = []
+    sz_list = []
+
+    for n in range(N):
+        op_list = []
+        for m in range(N):
+            op_list.append(si)
+
+        si_list.append(qt.tensor(op_list))
+
+        op_list[n] = sx
+        sx_list.append(qt.tensor(op_list))
+
+        op_list[n] = sy
+        sy_list.append(qt.tensor(op_list))
+
+        op_list[n] = sz
+        sz_list.append(qt.tensor(op_list))
+
+    H = 0
+
+    for tup in hiList_sc:
+        hi, i = tup
+        if hi != 0:
+            H += hi * sz_list[i]
+
+    for tup in JijList_sc:
+        Jij, i, j = tup
+        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j])
+
+    c_op_list = []
+
+    if gamma > 0.0:
+        if decohType == 'individual':
+            print('individual dissipation')
+            for i in range(N):
+                c_op_list.append(np.sqrt(1 - gamma) * si_list[i])
+                c_op_list.append(np.sqrt(gamma / 3) * sx_list[i])
+                c_op_list.append(np.sqrt(gamma / 3) * sy_list[i])
+                c_op_list.append(np.sqrt(gamma / 3) * sz_list[i])
+        elif decohType == 'symmetric':
+            print('symmetric dissipation')
+            c_op_list.append(np.sqrt(1 - 3 * gamma) * (si_list[0] + si_list[1] + si_list[2]))
+            c_op_list.append(np.sqrt(gamma) * (sx_list[0] + sx_list[1] + sx_list[2])); c_op_list.append(np.sqrt(gamma) * (sy_list[0] + sy_list[1] + sy_list[2])); c_op_list.append(np.sqrt(gamma) * (sz_list[0] + sz_list[1] + sz_list[2]))
+            c_op_list.append(np.sqrt(1 - gamma) * si_list[3])
+            c_op_list.append(np.sqrt(gamma / 3) * sx_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sy_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sz_list[3])
+        else:
+            print('Decoherence Error')
+
+    return H, c_op_list
+
+
+def makeRotations(N, pulseAngle):
+    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
+    si_list = []
+    sx_list = []
+    sy_list = []
+    sz_list = []
+
+    for n in range(N):
+        op_list = []
+        for m in range(N):
+            op_list.append(si)
+
+        si_list.append(qt.tensor(op_list))
+
+        op_list[n] = sx
+        sx_list.append(qt.tensor(op_list))
+
+        op_list[n] = sy
+        sy_list.append(qt.tensor(op_list))
+
+        op_list[n] = sz
+        sz_list.append(qt.tensor(op_list))
+
+    sx_tot = 0; sy_tot = 0; sz_tot = 0
+    for n in range(N):
+        sx_tot += sx_list[n]
+        sy_tot += sy_list[n]
+        sz_tot += sz_list[n]
+
+    Rx = (-1j*pulseAngle*sx_tot).expm()
+    Ry = (-1j*pulseAngle*sy_tot).expm()
+    Rz = (-1j*pulseAngle*sz_tot).expm()    
+
+    return Rx, Ry, Rz
+
+
+
 def hamiltonianListToMatrix(HParams, NSpins, fix_factor_of_2):
     # the fix_factor_of_2 corrects for the factor of 2 added to Jij in HParams to output the true Hamiltonian matrix
     if fix_factor_of_2:
@@ -466,18 +562,12 @@ def trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType):
 
     pulseAngle = np.pi / 2
 
-    ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-
-    Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
+    Rx, Ry, Rz = makeRotations(N,pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(N,-1*pulseAngle)
+    sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
+    sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
 
     H, c_op_list = makeGenerators(JijList, hiList, N, gamma, decohType)
-    # H = qt.Qobj(H_theta_mat)
-    # diagH, P = H.eigenstates(); P = [vec.full().flatten() for vec in P]
-    diagH, P = np.linalg.eigh(H.full())
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
@@ -486,9 +576,17 @@ def trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType):
 
     St_theta_Mat = np.zeros((basisStates_comp.size, tgrid.size), dtype=complex)
 
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
+
+    # ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
+    # Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
+
     # for indb, bint in enumerate(basisStates_comp):
     #     bstate = basisVector(bint, spinBasis)
-    #     result = qt.mesolve(H, qt.Qobj(bstate) * qt.Qobj(bstate).dag(), tgrid, c_op_list)
+    #     # rho0 = qt.Qobj(bstate) * qt.Qobj(bstate).dag()
+    #     rho0 = qt.ket2dm(qt.Qobj(bstate,dims=[dim_list2,dim_list1]))
+    #     result = qt.mesolve(H, rho0, tgrid, c_op_list)
 
     #     state_prob_re = np.zeros((bstate.size, tgrid.size), dtype=float)
     #     state_prob_im = np.zeros((bstate.size, tgrid.size), dtype=float)
@@ -505,24 +603,21 @@ def trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType):
     L = qt.liouvillian(H,c_op_list)
     dt = tgrid[1] - tgrid[0]
     V_dt = (dt*L).expm()
-    dim_list1 = np.ones(N,dtype='int').tolist()
-    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
 
     for indb, bint in enumerate(basisStates_comp):
         bstate = basisVector(bint, spinBasis)
-        # rho0 = qt.operator_to_vector(qt.Qobj(bstate) * qt.Qobj(bstate).dag())
         rho0 = qt.operator_to_vector(qt.ket2dm(qt.Qobj(bstate,dims=[dim_list2,dim_list1])))
         V_t = qt.to_super(qt.identity(dim_list2))
 
         state_prob_re = np.zeros((bstate.size, tgrid.size), dtype=float)
         state_prob_im = np.zeros((bstate.size, tgrid.size), dtype=float)
         for indt, t in enumerate(tgrid):
-            rho_re = qt.vector_to_operator(V_t*rho0).full()
-            # rho_im = (sRx*V_t).full()*rho0.full()
-            rho_im = Rx @ rho_re @ Rx_m
+            rho = V_t*rho0
+            rho_re = qt.vector_to_operator(rho).full()
+            rho_im = qt.vector_to_operator(sRx*rho).full()
             state_prob_re[:, indt] = np.abs(np.diag(rho_re))
             state_prob_im[:, indt] = np.abs(np.diag(rho_im))
-            Vt = V_dt*V_t
+            V_t = V_dt*V_t
 
         ave_Sz_Tot_re = np.sum(np.multiply(Sz_Tot[:, None], state_prob_re), axis=0)
         ave_Sz_Tot_im = np.sum(np.multiply(Sz_Tot[:, None], state_prob_im), axis=0)
@@ -548,18 +643,11 @@ def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, gamma, decohType):
 
     pulseAngle = np.pi / 2
 
-    ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-
-    Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
-
-    H, c_op_list = makeGenerators(JijList, hiList, N, gamma, decohType)
-    # H = qt.Qobj(H_theta_mat)
-    # diagH, P = H.eigenstates(); P = [vec.full().flatten() for vec in P]
-    diagH, P = np.linalg.eigh(H.full())
+    Rx, Ry, Rz = makeRotations(N,pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(N,-1*pulseAngle)
+    sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
+    sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
+    H, c_op_list = makeGenerators_sc(JijList, hiList, N, gamma, decohType)
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
@@ -568,15 +656,31 @@ def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, gamma, decohType):
 
     St_theta_Mat = np.zeros((basisStates_comp.size, tgrid.size), dtype=complex)
 
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
+
+    L = qt.liouvillian(H,c_op_list)
+    dt = tgrid[1] - tgrid[0]
+
+    cycleRed = 10; T = dt / cycleRed; tau = T / 6
+    V_tau = (tau*L).expm()
+    V_T = sRy * sRy * V_tau * sRx * V_tau * sRy_m * V_tau * V_tau * sRy_m * V_tau * sRx * V_tau  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
+    V_dt = V_T**cycleRed
+
     for indb, bint in enumerate(basisStates_comp):
         bstate = basisVector(bint, spinBasis)
-        result = qt.mesolve(H, qt.Qobj(bstate) * qt.Qobj(bstate).dag(), tgrid, c_op_list)
+        rho0 = qt.operator_to_vector(qt.ket2dm(qt.Qobj(bstate,dims=[dim_list2,dim_list1])))
+        V_t = qt.to_super(qt.identity(dim_list2))
 
         state_prob_re = np.zeros((bstate.size, tgrid.size), dtype=float)
         state_prob_im = np.zeros((bstate.size, tgrid.size), dtype=float)
         for indt, t in enumerate(tgrid):
-            state_prob_re[:, indt] = np.abs(np.diag(result.states[indt].full()))
-            state_prob_im[:, indt] = np.abs(np.diag(Rx @ result.states[indt].full() @ Rx_m))
+            rho = V_t*rho0
+            rho_re = qt.vector_to_operator(rho).full()
+            rho_im = qt.vector_to_operator(sRx*rho).full()
+            state_prob_re[:, indt] = np.abs(np.diag(rho_re))
+            state_prob_im[:, indt] = np.abs(np.diag(rho_im))
+            V_t = V_dt*V_t
 
         ave_Sz_Tot_re = np.sum(np.multiply(Sz_Tot[:, None], state_prob_re), axis=0)
         ave_Sz_Tot_im = np.sum(np.multiply(Sz_Tot[:, None], state_prob_im), axis=0)
