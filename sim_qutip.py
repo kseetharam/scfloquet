@@ -19,7 +19,7 @@ if __name__ == "__main__":
   matplotlib.rcParams.update({'font.size': 12})
   labelsize = 13
   legendsize = 12
-  lw = 1.0
+  lw = 0.5
 
   # # # ---- Acetonitrile ZF dissipation test ----
 
@@ -59,9 +59,10 @@ if __name__ == "__main__":
   
   # Noise parameters
 
-  gamma = 0
+  gamma = 0.0
   decohType = 'individual'
   # decohType = 'symmetric'
+  apo_param = 2
 
   # Noiseless simulation (true Hamiltonian)
 
@@ -69,7 +70,7 @@ if __name__ == "__main__":
   trueED_ds = nfuncs.trueSim_complex(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
   print(timer() - tstart)
   fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), 4)
+  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   spec_noiseless = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # # Noiseless simulation (average Hamiltonian)
@@ -78,7 +79,7 @@ if __name__ == "__main__":
   # trueED_ds = nfuncs.trueSim_complex_aveHam(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
   # print(timer() - tstart)
   # fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), 4)
+  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   # spec_noiseless_aveHam = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # # Noisy simulation (true Hamiltonian)
@@ -87,7 +88,7 @@ if __name__ == "__main__":
   # trueED_ds = nfuncs.trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType)
   # print(timer() - tstart)
   # fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), 4)
+  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   # spec_noisy = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # Noisy simulation (average Hamiltonian)
@@ -96,16 +97,18 @@ if __name__ == "__main__":
   trueED_ds = nfuncs.trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, gamma, decohType)
   print(timer() - tstart)
   fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), 4)
+  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   spec_noisy_aveHam = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
 
   # Plot 
 
   fig, ax = plt.subplots()
-  ax.plot(fgrid, spec_noiseless,linewidth=lw)
-  # ax.plot(fgrid, spec_noiseless_aveHam,linewidth=lw)
-  # ax.plot(fgrid, spec_noisy,linewidth=lw)
-  ax.plot(fgrid, spec_noisy_aveHam,linewidth=lw)
+  ax.plot(fgrid, spec_noiseless,linewidth=lw,color='k',linestyle='-')
+  # ax.plot(fgrid, spec_noiseless_aveHam,linewidth=lw,color='g',linestyle='-')
+  # ax.plot(fgrid, spec_noisy,linewidth=lw,color='b',linestyle='-')
+  ax.plot(fgrid, spec_noisy_aveHam,linewidth=lw,color='r',linestyle='-')
+  ax.set_ylim([0, 20])
+  ax.set_xlim([-300, -200])
 
   plt.show()
