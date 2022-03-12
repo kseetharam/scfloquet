@@ -105,6 +105,24 @@ def spectFunc_pa(St, tVals):
     return np.real(FTVals), fVals
 
 
+def hamiltonianListToMatrix(HParams, NSpins, fix_factor_of_2):
+    # the fix_factor_of_2 corrects for the factor of 2 added to Jij in HParams to output the true Hamiltonian matrix
+    if fix_factor_of_2:
+        f2 = 2
+    else:
+        f2 = 1
+
+    hamMat = np.zeros((NSpins, NSpins))
+    [JijList, hiList] = HParams
+    for indh, hTerm in enumerate(JijList):
+        [Jij, i, j] = hTerm
+        hamMat[i, j] = Jij / f2; hamMat[j, i] = Jij / f2
+    for indh, hTerm in enumerate(hiList):
+        [hi, i] = hTerm
+        hamMat[i, i] = hi
+    return hamMat
+
+
 # ---- ED FUNCTIONS ----
 
 
@@ -113,29 +131,6 @@ def fullHamiltonian(spinBasis, JijList, hiList, chemicalShifts=True):
     # chemicalShift is a flag that decides whether we include the hi terms or just the interactions Jij
     static = [["xx", JijList], ["yy", JijList], ["zz", JijList]]; dynamic = []
     # static = [["xx", JijList]]; dynamic = []; print('zz')
-    if chemicalShifts:
-        static.append(["x", hiList])
-    return hamiltonian(static, dynamic, basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False)
-
-
-def XYZHamiltonian(spinBasis, JijList, hiList, chemicalShifts=True):
-    static = [["xx", JijList]]; dynamic = []
-    JijyList = []
-    JijzList = []
-
-    yfac = 1.0
-    # zfac = 0.8
-    zfac = 4.3
-
-    # yfac = 1.1
-    # zfac = 1.0
-
-    for tup in JijList:
-        Jij, i, j = tup
-        JijyList.append([yfac * Jij, i, j])
-        JijzList.append([zfac * Jij, i, j])
-    static.append(["yy", JijyList])
-    static.append(["zz", JijzList])
     if chemicalShifts:
         static.append(["x", hiList])
     return hamiltonian(static, dynamic, basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False)
@@ -163,8 +158,7 @@ def scHamiltonian(spinBasis, JijList, hiList, chemicalShifts=True):
         static.append(["z", hiList_sc])
     return hamiltonian(static, dynamic, basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False)
 
-
-def makeGenerators(JijList, hiList, N, gamma, decohType):
+def getSpinOperators(N):
     si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
     si_list = []
     sx_list = []
@@ -186,121 +180,11 @@ def makeGenerators(JijList, hiList, N, gamma, decohType):
 
         op_list[n] = sz
         sz_list.append(qt.tensor(op_list))
+    return si_list, sx_list, sy_list, sz_list
 
-    H = 0
-
-    for tup in hiList:
-        hi, i = tup
-        if hi != 0:
-            H += hi * sx_list[i]
-
-    for tup in JijList:
-        Jij, i, j = tup
-        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j] + sz_list[i] * sz_list[j])
-
-    c_op_list = []
-
-    if gamma > 0.0:
-        if decohType == 'individual':
-            print('individual dissipation')
-            for i in range(N):
-                c_op_list.append(np.sqrt(1 - gamma) * si_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sx_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sy_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sz_list[i])
-        elif decohType == 'symmetric':
-            print('symmetric dissipation')
-            c_op_list.append(np.sqrt(1 - 3 * gamma) * (si_list[0] + si_list[1] + si_list[2]))
-            c_op_list.append(np.sqrt(gamma) * (sx_list[0] + sx_list[1] + sx_list[2])); c_op_list.append(np.sqrt(gamma) * (sy_list[0] + sy_list[1] + sy_list[2])); c_op_list.append(np.sqrt(gamma) * (sz_list[0] + sz_list[1] + sz_list[2]))
-            c_op_list.append(np.sqrt(1 - gamma) * si_list[3])
-            c_op_list.append(np.sqrt(gamma / 3) * sx_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sy_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sz_list[3])
-        else:
-            print('Decoherence Error')
-
-    return H, c_op_list
-
-
-def makeGenerators_sc(JijList, hiList, N, gamma, decohType):
-
-    JijList_sc, hiList_sc = scHamParams(JijList, hiList)
-
-    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
-    si_list = []
-    sx_list = []
-    sy_list = []
-    sz_list = []
-
-    for n in range(N):
-        op_list = []
-        for m in range(N):
-            op_list.append(si)
-
-        si_list.append(qt.tensor(op_list))
-
-        op_list[n] = sx
-        sx_list.append(qt.tensor(op_list))
-
-        op_list[n] = sy
-        sy_list.append(qt.tensor(op_list))
-
-        op_list[n] = sz
-        sz_list.append(qt.tensor(op_list))
-
-    H = 0
-
-    for tup in hiList_sc:
-        hi, i = tup
-        if hi != 0:
-            H += hi * sz_list[i]
-
-    for tup in JijList_sc:
-        Jij, i, j = tup
-        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j])
-
-    c_op_list = []
-
-    if gamma > 0.0:
-        if decohType == 'individual':
-            print('individual dissipation')
-            for i in range(N):
-                c_op_list.append(np.sqrt(1 - gamma) * si_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sx_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sy_list[i])
-                c_op_list.append(np.sqrt(gamma / 3) * sz_list[i])
-        elif decohType == 'symmetric':
-            print('symmetric dissipation')
-            c_op_list.append(np.sqrt(1 - 3 * gamma) * (si_list[0] + si_list[1] + si_list[2]))
-            c_op_list.append(np.sqrt(gamma) * (sx_list[0] + sx_list[1] + sx_list[2])); c_op_list.append(np.sqrt(gamma) * (sy_list[0] + sy_list[1] + sy_list[2])); c_op_list.append(np.sqrt(gamma) * (sz_list[0] + sz_list[1] + sz_list[2]))
-            c_op_list.append(np.sqrt(1 - gamma) * si_list[3])
-            c_op_list.append(np.sqrt(gamma / 3) * sx_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sy_list[3]); c_op_list.append(np.sqrt(gamma / 3) * sz_list[3])
-        else:
-            print('Decoherence Error')
-
-    return H, c_op_list
-
-
-def makeRotations(N, pulseAngle):
-    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
-    si_list = []
-    sx_list = []
-    sy_list = []
-    sz_list = []
-
-    for n in range(N):
-        op_list = []
-        for m in range(N):
-            op_list.append(si)
-
-        si_list.append(qt.tensor(op_list))
-
-        op_list[n] = sx
-        sx_list.append(qt.tensor(op_list))
-
-        op_list[n] = sy
-        sy_list.append(qt.tensor(op_list))
-
-        op_list[n] = sz
-        sz_list.append(qt.tensor(op_list))
+def makeRotations(operator_list, pulseAngle):
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
 
     sx_tot = 0; sy_tot = 0; sz_tot = 0
     for n in range(N):
@@ -314,24 +198,178 @@ def makeRotations(N, pulseAngle):
 
     return Rx, Ry, Rz
 
+def makeGenerators_Hnmr(operator_list, JijList, hiList):
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+
+    H = 0
+
+    for tup in hiList:
+        hi, i = tup
+        if hi != 0:
+            H += hi * sx_list[i]
+
+    for tup in JijList:
+        Jij, i, j = tup
+        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j] + sz_list[i] * sz_list[j])
+
+    return H
+
+def makeGenerators_Hsc(operator_list, JijList, hiList):
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+
+    JijList_sc, hiList_sc = scHamParams(JijList, hiList)
+
+    H = 0
+
+    for tup in hiList_sc:
+        hi, i = tup
+        if hi != 0:
+            H += hi * sz_list[i]
+
+    for tup in JijList_sc:
+        Jij, i, j = tup
+        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j])
+
+    return H
 
 
-def hamiltonianListToMatrix(HParams, NSpins, fix_factor_of_2):
-    # the fix_factor_of_2 corrects for the factor of 2 added to Jij in HParams to output the true Hamiltonian matrix
-    if fix_factor_of_2:
-        f2 = 2
-    else:
-        f2 = 1
+def makeGenerators_depolarize(operator_list, kappa, gamma):
+    if gamma == 0:
+        return []
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+    c_op_list = []
+    for i in range(N):
+        c_op_list.append(kappa * np.sqrt(1 - gamma) * si_list[i])
+        c_op_list.append(kappa * np.sqrt(gamma / 3) * 2 * sx_list[i])
+        c_op_list.append(kappa * np.sqrt(gamma / 3) * 2 * sy_list[i])
+        c_op_list.append(kappa * np.sqrt(gamma / 3) * 2 * sz_list[i])
 
-    hamMat = np.zeros((NSpins, NSpins))
-    [JijList, hiList] = HParams
-    for indh, hTerm in enumerate(JijList):
-        [Jij, i, j] = hTerm
-        hamMat[i, j] = Jij / f2; hamMat[j, i] = Jij / f2
-    for indh, hTerm in enumerate(hiList):
-        [hi, i] = hTerm
-        hamMat[i, i] = hi
-    return hamMat
+    return c_op_list
+
+
+def makeGenerators_ampdamp(operator_list, kappa, gamma):
+    if gamma == 0:
+        return []
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+    c_op_list = []
+    for i in range(N):
+        m0 = 0.5 * (1 + np.sqrt(1 - gamma)) * si_list[i] + (1 - np.sqrt(1 - gamma)) * sz_list[i]
+        m1 = np.sqrt(gamma) * sx_list[i] + 1j * np.sqrt(gamma) * sy_list[i] 
+        c_op_list.append(kappa * m0)
+        c_op_list.append(kappa * m1)
+
+    return c_op_list
+
+def makeGenerators_phasedamp(operator_list, kappa, gamma):
+    if gamma == 0:
+        return []
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+    c_op_list = []
+    for i in range(N):
+        # m0 = 0.5 * (1 + np.sqrt(1 - gamma)) * si_list[i] + (1 - np.sqrt(1 - gamma)) * sz_list[i]
+        # m1 = 0.5 * np.sqrt(gamma) * si_list[i] - np.sqrt(gamma) * sz_list[i] 
+        m0 = np.sqrt(1 - gamma) * si_list[i]
+        m1 = np.sqrt(gamma) * 2 * sz_list[i] 
+        c_op_list.append(kappa * m0)
+        c_op_list.append(kappa * m1)
+
+    return c_op_list
+
+
+def makeGenerators_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
+    si_list, sx_list, sy_list, sz_list = operator_list
+
+    H = makeGenerators_Hnmr(operator_list, JijList, hiList)
+
+    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+
+    return H, c_op_list
+
+
+def makeGenerators_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
+    si_list, sx_list, sy_list, sz_list = operator_list
+    JijList_sc, hiList_sc = scHamParams(JijList, hiList)
+    print(hiList)
+    print(JijList)
+
+    H = makeGenerators_Hsc(operator_list, JijList, hiList)
+
+    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+
+    return H, c_op_list
+
+
+def T1sim(tgrid, kappa, gamma_amp, gamma_phase):
+    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
+    pulseAngle = np.pi / 2
+    Rx = (-1j*pulseAngle*sx).expm(); Rx_m = (1j*pulseAngle*sx).expm()
+    Ry = (-1j*pulseAngle*sy).expm(); Ry_m = (1j*pulseAngle*sy).expm()
+    Rz = (-1j*pulseAngle*sz).expm(); Rz_m = (1j*pulseAngle*sz).expm()      
+
+    operator_list = getSpinOperators(1)
+
+    H = 0*si
+    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+    
+    spin = qt.basis(2, 0)
+    rho0 = qt.ket2dm(Rx*Rx*spin)
+    result = qt.mesolve(H, rho0, tgrid, c_op_list)
+
+    state_prob = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        rho_t = result.states[indt]
+        state_prob[indt] = np.abs(np.diag(rho_t.full()))[1]
+
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+
+    return ds
+
+
+def T2sim(tgrid, kappa, gamma_amp, gamma_phase):
+    si = qt.qeye(2); sx = 0.5 * qt.sigmax(); sy = 0.5 * qt.sigmay(); sz = 0.5 * qt.sigmaz()
+    pulseAngle = np.pi / 2
+    Rx = (-1j*pulseAngle*sx).expm(); Rx_m = (1j*pulseAngle*sx).expm()
+    Ry = (-1j*pulseAngle*sy).expm(); Ry_m = (1j*pulseAngle*sy).expm()
+    Rz = (-1j*pulseAngle*sz).expm(); Rz_m = (1j*pulseAngle*sz).expm()      
+
+    operator_list = getSpinOperators(1)
+
+    H = 0*si
+    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+    
+    spin = qt.basis(2, 0)
+    rho0 = qt.ket2dm(Rx*spin)
+    result = qt.mesolve(H, rho0, tgrid, c_op_list)
+
+    state_prob = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        rho_t = Rx * result.states[indt] * Rx_m
+        state_prob[indt] = np.abs(np.diag(rho_t.full()))[1]
+
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+
+    return ds
 
 
 def trueSim(tgrid, spinBasis, HParams, shotNoiseParams, decayRate, posMag=True, saveAllStates=False):
@@ -556,18 +594,19 @@ def trueSim_complex_aveHam(tgrid, spinBasis, HParams, shotNoiseParams, decayRate
     return trueED_ds
 
 
-def trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType):
+def trueSim_complex_qT(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase):
     [JijList, hiList] = HParams
     N = spinBasis.L
+    operator_list = getSpinOperators(N)
 
     pulseAngle = np.pi / 2
 
-    Rx, Ry, Rz = makeRotations(N,pulseAngle)
-    Rx_m, Ry_m, Rz_m = makeRotations(N,-1*pulseAngle)
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
     sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
     sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
 
-    H, c_op_list = makeGenerators(JijList, hiList, N, gamma, decohType)
+    H, c_op_list = makeGenerators_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
@@ -637,17 +676,18 @@ def trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType):
     trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
     return trueED_ds
 
-def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, gamma, decohType):
+def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase):
     [JijList, hiList] = HParams
     N = spinBasis.L
+    operator_list = getSpinOperators(N)
 
     pulseAngle = np.pi / 2
 
-    Rx, Ry, Rz = makeRotations(N,pulseAngle)
-    Rx_m, Ry_m, Rz_m = makeRotations(N,-1*pulseAngle)
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
     sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
     sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
-    H, c_op_list = makeGenerators_sc(JijList, hiList, N, gamma, decohType)
+    H, c_op_list = makeGenerators_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)

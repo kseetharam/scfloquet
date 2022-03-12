@@ -56,13 +56,43 @@ if __name__ == "__main__":
   HParams = [JijList, hiList]
   gridParams = {'spinBasis': spinBasis, 'tgrid': tgrid}
   shotNoiseParams_true = {'ShotNoise': False, 'N_ShotNoise': 10000}
-  
+
+  print(timestep)
+
   # Noise parameters
 
-  gamma = 0.0
-  decohType = 'individual'
-  # decohType = 'symmetric'
-  apo_param = 2
+  # Note: for the superconducting simulation, we will assume the Hamiltonian parameters above (given in Hz) are actually values in MHz and the time points (given in seconds) are in microseconds.  
+  # This is equivalent to rescaling H->1e6*H and t->1e-6*t so that H*t is invariant. Therefore, for the purposes of setting the dissipation rate, we interpret tgrid as values in microseconds.
+
+  T1_exp = 20  # T1 time in microseconds
+  T2_exp = 1   # T2 time in microseconds
+
+  kappa = 10  # sets the scale of dissipation as 10 MHz, with the smalled decoherence time implementable by the channel being T = 1/kappa = 0.1 microseconds
+  gamma_amp = 1/(kappa**2 * T1_exp)  # corresponds to a qubit occupation decay of exp(-t/T1) with T1 = 1/(kappa**2 * gamma_amp) where gamma \in [0, 1]
+  gamma_phase = 1/(2*kappa**2 * T2_exp)  # corresponds to a qubit coherence decay of 0.5 + 0.5 * exp(-t/T2) with T2 = 1/(2*kappa**2 * gamma_phase) where gamma \in [0, 1]
+  apo_param = 4
+
+  # # Fitting noise parameters
+
+  # tgrid_noisefit = timestep * np.array([i for i in range(10*npoints)])
+
+  # T1_ds_phase = nfuncs.T1sim(tgrid_noisefit, kappa, 0, gamma_phase) 
+  # T2_ds_phase = nfuncs.T2sim(tgrid_noisefit, kappa, 0, gamma_phase) 
+
+  # fig2, ax2 = plt.subplots()
+  # ax2.plot(tgrid_noisefit, T1_ds_phase['state_prob'].values,'k-')
+  # ax2.plot(tgrid_noisefit, T2_ds_phase['state_prob'].values,'g-')
+  # ax2.plot(tgrid_noisefit, 0.5 + 0.5 * np.exp(-1*tgrid_noisefit/T2_exp),'r--')
+
+  # T1_ds_amp = nfuncs.T1sim(tgrid_noisefit, kappa, gamma_amp, 0) 
+  # T2_ds_amp = nfuncs.T2sim(tgrid_noisefit, kappa, gamma_amp, 0) 
+
+  # fig2, ax2 = plt.subplots()
+  # ax2.plot(tgrid_noisefit, T1_ds_amp['state_prob'].values,'k-')
+  # ax2.plot(tgrid_noisefit, T2_ds_amp['state_prob'].values,'g-')
+  # ax2.plot(tgrid_noisefit, np.exp(-1*tgrid_noisefit/T1_exp),'r--')
+
+  # plt.show()
 
   # Noiseless simulation (true Hamiltonian)
 
@@ -85,7 +115,7 @@ if __name__ == "__main__":
   # # Noisy simulation (true Hamiltonian)
 
   # tstart = timer()
-  # trueED_ds = nfuncs.trueSim_complex_qT(tgrid, spinBasis, HParams, gamma, decohType)
+  # trueED_ds = nfuncs.trueSim_complex_qT(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
   # print(timer() - tstart)
   # fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
   # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
@@ -94,7 +124,7 @@ if __name__ == "__main__":
   # Noisy simulation (average Hamiltonian)
 
   tstart = timer()
-  trueED_ds = nfuncs.trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, gamma, decohType)
+  trueED_ds = nfuncs.trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
   print(timer() - tstart)
   fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
   fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
@@ -109,6 +139,6 @@ if __name__ == "__main__":
   # ax.plot(fgrid, spec_noisy,linewidth=lw,color='b',linestyle='-')
   ax.plot(fgrid, spec_noisy_aveHam,linewidth=lw,color='r',linestyle='-')
   ax.set_ylim([0, 20])
-  ax.set_xlim([-300, -200])
+  # ax.set_xlim([-300, -200])
 
   plt.show()
