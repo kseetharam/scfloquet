@@ -240,9 +240,9 @@ def makeGenerator_Hnative(operator_list, J_S, J_I, hiList):
     N = len(si_list)
     H = 0
 
-    for hi in hiList:
+    for ind, hi in enumerate(hiList):
         if hi != 0:
-            H += hi * sz_list[i]
+            H += hi * sz_list[ind]
 
     # int_list = [] # list of spins which interact
 
@@ -274,9 +274,9 @@ def makeGenerator_Hxxz(operator_list, J, Delta, hiList):
     N = len(si_list)
     H = 0
 
-    for hi in hiList:
+    for ind, hi in enumerate(hiList):
         if hi != 0:
-            H += hi * sz_list[i]
+            H += hi * sz_list[ind]
 
     # int_list = [] # list of spins which interact
 

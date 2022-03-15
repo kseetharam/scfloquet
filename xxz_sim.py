@@ -25,9 +25,11 @@ if __name__ == "__main__":
 
   N = 4  # number of qubits. If N < 4, assumes a line of qubits. If N > 4, assumes a square grid of qubits of size sqrt(N) x sqrt(N)
 
-  hiList = [0 for i  in np.arange(N**2)]  # qubit frequencies in MHz
   J_I = 0.2  # parasitic ZZ interaction strength of native SC Hamiltonian (MHz)
   J_S = 6  # flip-flop interaction strength of native SC Hamiltonian (MHz)
+  # hiList = [0 for i  in np.arange(N)]  # qubit frequencies in MHz
+  hiList = [((-J_S + 2*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
+
   Delta_eff = 0.3  # anisotropy of effective XXZ Hamiltonian (in units of J_eff); leads to well-defined pulse times for values between ~[0.1, 2]
   alpha = (J_I * Delta_eff + J_S * (Delta_eff - 2))/(J_I - J_S * Delta_eff)  # pulse anisotropy parameter (tau_z = alpha * tau)
   J_eff = (J_I + (alpha + 1) * J_S)/(alpha + 2) # flip-flop interaction strength of effective XXZ Hamiltonian (MHz)
@@ -77,14 +79,14 @@ if __name__ == "__main__":
   # Grid test
 
   tstart = timer()
-  ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
-  # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
+  # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
+  ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
   print(timer() - tstart)
   Sy = ds['Sy'].values
 
   tstart = timer()
-  ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
-  # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
+  # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
+  ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
   print(timer() - tstart)
   Sy_aveHam = ds_aveHam['Sy'].values
 
