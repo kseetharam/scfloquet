@@ -1,5 +1,5 @@
 import numpy as np
-import nmrfuncs as nfuncs
+import scfuncs
 from quspin.operators import hamiltonian
 from quspin.basis import spin_basis_1d
 from scipy.io import savemat, loadmat
@@ -21,7 +21,7 @@ if __name__ == "__main__":
   legendsize = 12
   lw = 0.5
 
-  # # # ---- Acetonitrile ZF dissipation test ----
+  # # # ---- NMR simulation ----
 
   magnet = 16.1
   offset_Hz = 2800

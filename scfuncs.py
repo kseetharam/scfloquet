@@ -198,9 +198,8 @@ def makeRotations(operator_list, pulseAngle):
 
     return Rx, Ry, Rz
 
-def makeGenerators_Hnmr(operator_list, JijList, hiList):
+def makeGenerator_Hnmr(operator_list, JijList, hiList):
     si_list, sx_list, sy_list, sz_list = operator_list
-    N = len(si_list)
 
     H = 0
 
@@ -215,9 +214,8 @@ def makeGenerators_Hnmr(operator_list, JijList, hiList):
 
     return H
 
-def makeGenerators_Hsc(operator_list, JijList, hiList):
+def makeGenerator_Hsc(operator_list, JijList, hiList):
     si_list, sx_list, sy_list, sz_list = operator_list
-    N = len(si_list)
 
     JijList_sc, hiList_sc = scHamParams(JijList, hiList)
 
@@ -235,7 +233,76 @@ def makeGenerators_Hsc(operator_list, JijList, hiList):
     return H
 
 
-def makeGenerators_depolarize(operator_list, kappa, gamma):
+def makeGenerator_Hnative(operator_list, J_S, J_I, hiList):
+    # assumes nearest-neighbor interactions of qubits according to native SC Hamiltonian H = \sum_{i<j} { J_S * (S_{i}^{x}*S_{j}^{x}+S_{i}^{y}*S_{j}^{y}) + J_I * S_{i}^{z}*S_{j}^{z} } + \sum_{i} h_{I}*S_{i}^{z}
+
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+    H = 0
+
+    for hi in hiList:
+        if hi != 0:
+            H += hi * sz_list[i]
+
+    # int_list = [] # list of spins which interact
+
+    if N < 4:
+        for i in np.arange(N):
+            if (i + 1) < N:
+                H += J_S * (sx_list[i] * sx_list[i+1] + sy_list[i] * sy_list[i+1]) + J_I * sz_list[i] * sz_list[i+1]
+                # int_list.append((i,i+1))
+    else:
+        Nlin = int(np.sqrt(N))
+        grid = np.reshape(range(N),(Nlin,Nlin))
+        # print(grid)
+        for i in np.arange(Nlin):
+            for j in np.arange(Nlin):
+                if (i + 1) < Nlin:
+                    H += J_S * (sx_list[grid[i,j]] * sx_list[grid[i+1,j]] + sy_list[grid[i,j]] * sy_list[grid[i+1,j]]) + J_I * sz_list[grid[i,j]] * sz_list[grid[i+1,j]]
+                    # int_list.append((grid[i,j],grid[i+1,j]))                        
+                if (j + 1) < Nlin:
+                    H += J_S * (sx_list[grid[i,j]] * sx_list[grid[i,j+1]] + sy_list[grid[i,j]] * sy_list[grid[i,j+1]]) + J_I * sz_list[grid[i,j]] * sz_list[grid[i,j+1]]
+                    # int_list.append((grid[i,j],grid[i,j+1]))
+    # print(int_list)                        
+
+    return H
+
+def makeGenerator_Hxxz(operator_list, J, Delta, hiList):
+    # assumes nearest-neighbor interactions of qubits according to native SC Hamiltonian H = \sum_{i<j} { J_S * (S_{i}^{x}*S_{j}^{x}+S_{i}^{y}*S_{j}^{y}) + J_I * S_{i}^{z}*S_{j}^{z} } + \sum_{i} h_{I}*S_{i}^{z}
+
+    si_list, sx_list, sy_list, sz_list = operator_list
+    N = len(si_list)
+    H = 0
+
+    for hi in hiList:
+        if hi != 0:
+            H += hi * sz_list[i]
+
+    # int_list = [] # list of spins which interact
+
+    if N < 4:
+        for i in np.arange(N):
+            if (i + 1) < N:
+                H += J * (sx_list[i] * sx_list[i+1] + sy_list[i] * sy_list[i+1]) + J * Delta * sz_list[i] * sz_list[i+1]
+                # int_list.append((i,i+1))
+    else:
+        Nlin = int(np.sqrt(N))
+        grid = np.reshape(range(N),(Nlin,Nlin))
+        # print(grid)
+        for i in np.arange(Nlin):
+            for j in np.arange(Nlin):
+                if (i + 1) < Nlin:
+                    H += J * (sx_list[grid[i,j]] * sx_list[grid[i+1,j]] + sy_list[grid[i,j]] * sy_list[grid[i+1,j]]) + J*Delta * sz_list[grid[i,j]] * sz_list[grid[i+1,j]]
+                    # int_list.append((grid[i,j],grid[i+1,j]))                        
+                if (j + 1) < Nlin:
+                    H += J * (sx_list[grid[i,j]] * sx_list[grid[i,j+1]] + sy_list[grid[i,j]] * sy_list[grid[i,j+1]]) + J*Delta * sz_list[grid[i,j]] * sz_list[grid[i,j+1]]
+                    # int_list.append((grid[i,j],grid[i,j+1]))
+    # print(int_list)                        
+
+    return H
+
+
+def makeGenerator_depolarize(operator_list, kappa, gamma):
     if gamma == 0:
         return []
     si_list, sx_list, sy_list, sz_list = operator_list
@@ -250,7 +317,7 @@ def makeGenerators_depolarize(operator_list, kappa, gamma):
     return c_op_list
 
 
-def makeGenerators_ampdamp(operator_list, kappa, gamma):
+def makeGenerator_ampdamp(operator_list, kappa, gamma):
     if gamma == 0:
         return []
     si_list, sx_list, sy_list, sz_list = operator_list
@@ -264,7 +331,7 @@ def makeGenerators_ampdamp(operator_list, kappa, gamma):
 
     return c_op_list
 
-def makeGenerators_phasedamp(operator_list, kappa, gamma):
+def makeGenerator_phasedamp(operator_list, kappa, gamma):
     if gamma == 0:
         return []
     si_list, sx_list, sy_list, sz_list = operator_list
@@ -281,31 +348,54 @@ def makeGenerators_phasedamp(operator_list, kappa, gamma):
     return c_op_list
 
 
-def makeGenerators_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
+def makeGenerator_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
     si_list, sx_list, sy_list, sz_list = operator_list
 
-    H = makeGenerators_Hnmr(operator_list, JijList, hiList)
+    H = makeGenerator_Hnmr(operator_list, JijList, hiList)
 
-    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
-    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
     c_op_list = c_op_list_amp + c_op_list_phase
 
     return H, c_op_list
 
 
-def makeGenerators_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
+def makeGenerator_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase):
     si_list, sx_list, sy_list, sz_list = operator_list
     JijList_sc, hiList_sc = scHamParams(JijList, hiList)
-    print(hiList)
-    print(JijList)
 
-    H = makeGenerators_Hsc(operator_list, JijList, hiList)
+    H = makeGenerator_Hsc(operator_list, JijList, hiList)
 
-    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
-    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
     c_op_list = c_op_list_amp + c_op_list_phase
 
     return H, c_op_list
+
+
+def makeGenerator_native(operator_list, J_S, J_I, hiList, kappa, gamma_amp, gamma_phase):
+    si_list, sx_list, sy_list, sz_list = operator_list
+
+    H = makeGenerator_Hnative(operator_list, J_S, J_I, hiList)
+
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+
+    return H, c_op_list
+
+
+def makeGenerator_xxz(operator_list, J, Delta, hiList, kappa, gamma_amp, gamma_phase):
+    si_list, sx_list, sy_list, sz_list = operator_list
+
+    H = makeGenerator_Hxxz(operator_list, J, Delta, hiList)
+
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+
+    return H, c_op_list
+
 
 
 def T1sim(tgrid, kappa, gamma_amp, gamma_phase):
@@ -318,8 +408,8 @@ def T1sim(tgrid, kappa, gamma_amp, gamma_phase):
     operator_list = getSpinOperators(1)
 
     H = 0*si
-    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
-    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
     c_op_list = c_op_list_amp + c_op_list_phase
     
     spin = qt.basis(2, 0)
@@ -350,8 +440,8 @@ def T2sim(tgrid, kappa, gamma_amp, gamma_phase):
     operator_list = getSpinOperators(1)
 
     H = 0*si
-    c_op_list_amp = makeGenerators_ampdamp(operator_list, kappa, gamma_amp)
-    c_op_list_phase = makeGenerators_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
     c_op_list = c_op_list_amp + c_op_list_phase
     
     spin = qt.basis(2, 0)
@@ -606,7 +696,7 @@ def trueSim_complex_qT(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
     sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
     sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
 
-    H, c_op_list = makeGenerators_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
+    H, c_op_list = makeGenerator_nmr(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
@@ -687,7 +777,7 @@ def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma
     Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
     sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
     sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
-    H, c_op_list = makeGenerators_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
+    H, c_op_list = makeGenerator_sc(operator_list, JijList, hiList, kappa, gamma_amp, gamma_phase)
 
     Sz_Tot = SzTot(spinBasis)
     magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
@@ -740,400 +830,110 @@ def trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma
     trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
     return trueED_ds
 
-def trueSim_cosy(tgrid, spinBasis, HParams, shotNoiseParams, decayRate, posMag=True):
-    tgrid1, tgrid2 = tgrid; tsize = tgrid1.size * tgrid2.size
-    ShotNoise = shotNoiseParams['ShotNoise']; N_ShotNoise = shotNoiseParams['N_ShotNoise']
-    [JijList, hiList] = HParams
-    H_theta = fullHamiltonian(spinBasis, JijList, hiList, chemicalShifts=True)
-    diagH, P = H_theta.eigh()
 
-    N = spinBasis.L
+def xxzSim_pair_qT(tgrid, J, Delta, hiList, kappa, gamma_amp, gamma_phase):
+    N = 2
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
 
     pulseAngle = np.pi / 2
 
-    ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-
-    U_Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; U_Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    U_Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; U_Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    U_Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; U_Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
-
-    Sz_Tot = SzTot(spinBasis)
-    if posMag:
-        magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
-        Sz_Tot_comp = Sz_Tot[magMask]
-        basisStates_comp = spinBasis.states[magMask]
-    else:
-        Sz_Tot_comp = Sz_Tot
-        basisStates_comp = spinBasis.states
-
-    St_theta_Mat = np.zeros((basisStates_comp.size, tsize), dtype=complex)
-    print(basisStates_comp.size)
-
-    for indb, bint in enumerate(basisStates_comp):
-        bstate = basisVector(bint, spinBasis)
-
-        psi_t_re = np.zeros((bstate.size, tsize), dtype=complex)
-        psi_t_im = np.zeros((bstate.size, tsize), dtype=complex)
-        indt = 0
-        # tpairList = []
-        # tcheckList = []
-        for ind2, t2 in enumerate(tgrid2):
-            for ind1, t1 in enumerate(tgrid1):
-                U_t1 = get_U(diagH, P, t1)
-                U_t2 = get_U(diagH, P, t2)
-
-                psi_t_re[:, indt] = np.dot(U_t2 @ U_Rz_m @ U_Rx_m @ U_t1, bstate)
-                psi_t_im[:, indt] = np.dot(U_t2 @ U_Ry @ U_t1, bstate)
-
-                # psi_t_re[:, indt] = np.dot(U_t2 @ U_Rz_m @ U_t1 @ U_Rx_m, bstate)
-                # psi_t_im[:, indt] = np.dot(U_Rx @ U_t2 @ U_Rz_m @ U_t1 @ U_Rx_m, bstate)
-
-                # psi_t_re[:, indt] = np.dot(U_t2 @ U_Rz_m @ U_t1, bstate)
-                # psi_t_im[:, indt] = np.dot(U_Rx @ U_t2 @ U_Rz_m @ U_t1, bstate)
-
-                # tpairList.append((t1, t2))
-                indt += 1
-                # tcheckList.append(ind1 * ind2)
-
-        ave_Sz_Tot_re = aveSzTot(psi_t_re, Sz_Tot, ShotNoise, N_ShotNoise)
-        ave_Sz_Tot_im = aveSzTot(psi_t_im, Sz_Tot, ShotNoise, N_ShotNoise)
-        ave_Sz_Tot = ave_Sz_Tot_re + 1j * ave_Sz_Tot_im
-        St_theta_Mat[indb, :] = ave_Sz_Tot * Sz_Tot_comp[indb] / spinBasis.Ns  # each row is a term in the sum (=from one basis state) of S(t|\theta)
-
-    if posMag:
-        St_theta = 2 * np.sum(St_theta_Mat, axis=0)  # sums all terms (each term is the contribution from an initial basis state). Factor of 2 comes from the negative magnetization sector. For some reason St_theta[0] is a little off from the sum rule (N/4) when we compute only over the positive magnetization sector...
-    else:
-        St_theta = np.sum(St_theta_Mat, axis=0)
-
-    St_theta = St_theta.reshape((tgrid2.size, tgrid1.size))  # rows of St_theta indexed by t2 and columns indexed by t1 in line with Spinach convention
-
-    ResponseFunc_Real_da = xr.DataArray(np.real(St_theta), coords=[tgrid2, tgrid1], dims=['t2', 't1'])
-    ResponseFunc_Imag_da = xr.DataArray(np.imag(St_theta), coords=[tgrid2, tgrid1], dims=['t2', 't1'])
-
-    data_dict = {'ResponseFunc_Real': ResponseFunc_Real_da, 'ResponseFunc_Imag': ResponseFunc_Imag_da}
-    coords_dict = {'t1': tgrid1, 't2': tgrid2, 'basisStates_comp': basisStates_comp, 'basisStates_all': spinBasis.states, 'i': np.arange(spinBasis.L), 'j': np.arange(spinBasis.L)}
-    attrs_dict = {'Nspins': N}
-
-    trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
-    return trueED_ds
-
-
-def trueSim_cosy_aveHam(tgrid, spinBasis, HParams, shotNoiseParams, decayRate, posMag=True):
-    tgrid1, tgrid2 = tgrid; tsize = tgrid1.size * tgrid2.size
-    ShotNoise = shotNoiseParams['ShotNoise']; N_ShotNoise = shotNoiseParams['N_ShotNoise']
-    [JijList, hiList] = HParams
-    H_theta = scHamiltonian(spinBasis, JijList, hiList, chemicalShifts=True)
-    diagH, P = H_theta.eigh()
-
-    N = spinBasis.L
-
-    pulseAngle = np.pi / 2
-
-    ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-
-    Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
-
-    Sz_Tot = SzTot(spinBasis)
-    if posMag:
-        magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
-        Sz_Tot_comp = Sz_Tot[magMask]
-        basisStates_comp = spinBasis.states[magMask]
-    else:
-        Sz_Tot_comp = Sz_Tot
-        basisStates_comp = spinBasis.states
-
-    St_theta_Mat = np.zeros((basisStates_comp.size, tsize), dtype=complex)
-    print(basisStates_comp.size)
-
-    cycleRed = 10; timestep = tgrid1[1] - tgrid1[0]; T = timestep / cycleRed; tau = T / 6
-    U_tau = get_U(diagH, P, tau)
-    U_T = Ry @ Ry @ U_tau @ Rx @ U_tau @ Ry_m @ U_tau @ U_tau @ Ry_m @ U_tau @ Rx @ U_tau  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
-    U_dt = np.linalg.matrix_power(U_T, cycleRed)  # time-evolution for a step dt in the time grid
-
-    for indb, bint in enumerate(basisStates_comp):
-        bstate = basisVector(bint, spinBasis)
-
-        psi_t_re = np.zeros((bstate.size, tsize), dtype=complex)
-        psi_t_im = np.zeros((bstate.size, tsize), dtype=complex)
-        indt = 0
-        # tpairList = []
-        # tcheckList = []
-
-        U_t2 = np.eye(U_T.shape[0])
-        for ind2, t2 in enumerate(tgrid2):
-            U_t1 = np.eye(U_T.shape[0])
-            for ind1, t1 in enumerate(tgrid1):
-                # U_t1 = get_U(diagH, P, t1)
-                # U_t2 = get_U(diagH, P, t2)
-
-                # U_t1 = np.linalg.matrix_power(U_dt, ind1)
-                # U_t2 = np.linalg.matrix_power(U_dt, ind2)
-
-                psi_t_re[:, indt] = np.dot(U_t2 @ Rz_m @ Rx_m @ U_t1, bstate)
-                psi_t_im[:, indt] = np.dot(U_t2 @ Ry @ U_t1, bstate)
-
-                # psi_t_re[:, indt] = np.dot(U_t2 @ U_Rz_m @ U_t1 @ U_Rx_m, bstate)
-                # psi_t_im[:, indt] = np.dot(U_Rx @ U_t2 @ U_Rz_m @ U_t1 @ U_Rx_m, bstate)
-
-                # psi_t_re[:, indt] = np.dot(U_t2 @ U_Rz_m @ U_t1, bstate)
-                # psi_t_im[:, indt] = np.dot(U_Rx @ U_t2 @ U_Rz_m @ U_t1, bstate)
-
-                # tpairList.append((t1, t2))
-                indt += 1
-                # tcheckList.append(ind1 * ind2)
-
-                U_t1 = U_dt @ U_t1
-            U_t2 = U_dt @ U_t2
-
-        ave_Sz_Tot_re = aveSzTot(psi_t_re, Sz_Tot, ShotNoise, N_ShotNoise)
-        ave_Sz_Tot_im = aveSzTot(psi_t_im, Sz_Tot, ShotNoise, N_ShotNoise)
-        ave_Sz_Tot = ave_Sz_Tot_re + 1j * ave_Sz_Tot_im
-        St_theta_Mat[indb, :] = ave_Sz_Tot * Sz_Tot_comp[indb] / spinBasis.Ns  # each row is a term in the sum (=from one basis state) of S(t|\theta)
-
-    if posMag:
-        St_theta = 2 * np.sum(St_theta_Mat, axis=0)  # sums all terms (each term is the contribution from an initial basis state). Factor of 2 comes from the negative magnetization sector. For some reason St_theta[0] is a little off from the sum rule (N/4) when we compute only over the positive magnetization sector...
-    else:
-        St_theta = np.sum(St_theta_Mat, axis=0)
-
-    St_theta = St_theta.reshape((tgrid2.size, tgrid1.size))  # rows of St_theta indexed by t2 and columns indexed by t1 in line with Spinach convention
-
-    ResponseFunc_Real_da = xr.DataArray(np.real(St_theta), coords=[tgrid2, tgrid1], dims=['t2', 't1'])
-    ResponseFunc_Imag_da = xr.DataArray(np.imag(St_theta), coords=[tgrid2, tgrid1], dims=['t2', 't1'])
-
-    data_dict = {'ResponseFunc_Real': ResponseFunc_Real_da, 'ResponseFunc_Imag': ResponseFunc_Imag_da}
-    coords_dict = {'t1': tgrid1, 't2': tgrid2, 'basisStates_comp': basisStates_comp, 'basisStates_all': spinBasis.states, 'i': np.arange(spinBasis.L), 'j': np.arange(spinBasis.L)}
-    attrs_dict = {'Nspins': N}
-
-    trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
-    return trueED_ds
-
-
-def trueSim_zerofield(tgrid, spinBasis, HParams, weights, shotNoiseParams, lowfield=False, posMag=True):
-    ShotNoise = shotNoiseParams['ShotNoise']; N_ShotNoise = shotNoiseParams['N_ShotNoise']
-    [JijList, hiList] = HParams
-    H_theta = fullHamiltonian(spinBasis, JijList, hiList, chemicalShifts=lowfield)
-    # H_theta = XYZHamiltonian(spinBasis, JijList, hiList, chemicalShifts=lowfield)
-    diagH, P = H_theta.eigh()
-    deltaE = np.around((diagH - diagH[0]) / (2 * np.pi * 136.2), 5); print(deltaE)
-    # print(diagH / (2 * np.pi * 136.2))
-
-    N = spinBasis.L
-
-    pulseAngle = np.pi / 2
-
-    ham_Rx = hamiltonian([["x", [[weights[i], i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[weights[i], i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[weights[i], i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-
-    U_Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; U_Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    U_Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; U_Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    U_Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; U_Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
-
-    # Sz_Tot = SzTot(spinBasis)
-    Sz_Tot = np.diag(ham_Rz.todense())
-    if posMag:
-        magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
-        Sz_Tot_comp = Sz_Tot[magMask]
-        basisStates_comp = spinBasis.states[magMask]
-    else:
-        Sz_Tot_comp = Sz_Tot
-        basisStates_comp = spinBasis.states
-
-    St_theta_Mat = np.zeros((basisStates_comp.size, tgrid.size))
-    entEntropy_Mat = np.zeros((basisStates_comp.size, tgrid.size))
-    overlap_Mat = np.zeros((basisStates_comp.size, tgrid.size))
-
-    for indb, bint in enumerate(basisStates_comp):
-        bstate = basisVector(bint, spinBasis)
-
-        psi_t = np.zeros((bstate.size, tgrid.size), dtype=complex)
-        for indt, t in enumerate(tgrid):
-            U_t = get_U(diagH, P, t)
-            # psi_t[:, indt] = np.dot(U_t @ U_Ry, bstate)
-            psi_indt = np.dot(U_t, bstate)
-            psi_t[:, indt] = psi_indt
-            # print(np.around(np.abs(psi_t[:, indt])**2, 3))
-            entEntropy_Mat[indb, indt] = spinBasis.ent_entropy(state=psi_indt, sub_sys_A=[0, 1], density=True)['Sent_A']
-            overlap_Mat[indb, indt] = np.abs(np.vdot(bstate, psi_indt))
-
-        ave_Sz_Tot = aveSzTot(psi_t, Sz_Tot, ShotNoise, N_ShotNoise)
-        # print(ave_Sz_Tot)
-        St_theta_Mat[indb, :] = ave_Sz_Tot * Sz_Tot_comp[indb] / spinBasis.Ns  # each row is a term in the sum (=from one basis state) of S(t|\theta)
-
-    if posMag:
-        St_theta = 2 * np.sum(St_theta_Mat, axis=0)  # sums all terms (each term is the contribution from an initial basis state). Factor of 2 comes from the negative magnetization sector. For some reason St_theta[0] is a little off from the sum rule (N/4) when we compute only over the positive magnetization sector...
-    else:
-        St_theta = np.sum(St_theta_Mat, axis=0)
-
-    ResponseFunc_da = xr.DataArray(St_theta, coords=[tgrid], dims=['t'])
-
-    hamiltonian_da = xr.DataArray(hamiltonianListToMatrix(HParams, spinBasis.L, True), coords=[np.arange(spinBasis.L), np.arange(spinBasis.L)], dims=['i', 'j'])
-    # entEntropy_da = xr.DataArray(entEntropy_Mat, coords=[basisStates_comp, tgrid], dims=['basisStates_comp', 't'])
-    entEntropy_Vec = np.mean(entEntropy_Mat, axis=0)
-    entEntropy_da = xr.DataArray(entEntropy_Vec, coords=[tgrid], dims=['t'])
-
-    overlap_da = xr.DataArray(overlap_Mat, coords=[basisStates_comp, tgrid], dims=['basisStates_comp', 't'])
-    overlap_Ave_da = xr.DataArray(np.mean(overlap_Mat, axis=0), coords=[tgrid], dims=['t'])
-
-    data_dict = {'ResponseFunc': ResponseFunc_da, 'HamiltonianMatrix': hamiltonian_da, 'EntEntropy': entEntropy_da, 'overlap': overlap_da, 'overlap_Ave': overlap_Ave_da}
-    coords_dict = {'t': tgrid, 'basisStates_comp': basisStates_comp, 'basisStates_all': spinBasis.states, 'i': np.arange(spinBasis.L), 'j': np.arange(spinBasis.L)}
-    attrs_dict = {'Nspins': N}
-
-    trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
-    return trueED_ds
-
-
-def trueSim_zerofield_qT(tgrid, spinBasis, HParams, weights, gamma, decohType):
-    [JijList, hiList] = HParams
-    N = spinBasis.L
-
-    H_theta = fullHamiltonian(spinBasis, JijList, hiList, chemicalShifts=False)
-    diagH_theta, P_theta = H_theta.eigh()
-    # diagH_theta, P_theta = np.linalg.eigh(H_theta.todense())
-
-    H, c_op_list = makeGenerators(JijList, hiList, N, gamma, decohType)
-    # H = qt.Qobj(H_theta_mat)
-    # diagH, P = H.eigenstates(); P = [vec.full().flatten() for vec in P]
-    diagH, P = np.linalg.eigh(H.full())
-
-    # liouv_mat = qt.liouvillian(H, c_op_list)
-    # eig_mat = liouv_mat.eigenenergies()
-    # re_eigmat = np.real(eig_mat)
-    # imag_eigmat = np.imag(eig_mat)
-    # scale = (2 * np.pi * 136.2)
-    # import matplotlib.pyplot as plt
-    # fig = plt.figure(6)
-    # if gamma != 0:
-    #     plt.plot(re_eigmat / gamma, imag_eigmat / scale, 'k.')
-    # else:
-    #     plt.plot(re_eigmat, imag_eigmat / scale, 'k.')
-    # plt.show()
-
-    # print(diagH_theta - diagH_theta[0])
-    # print(diagH - diagH[0])
-
-    ham_Rz = hamiltonian([["z", [[weights[i], i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-    Sz_Tot = np.diag(ham_Rz.todense())
-
-    magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
-    Sz_Tot_comp = Sz_Tot[magMask]
-    basisStates_comp = spinBasis.states[magMask]
-
-    # basisStates_comp = [qt.tensor([qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 0)]),
-    #                     qt.tensor([qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 1)]),
-    #                     qt.tensor([qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 1), qt.basis(2, 0)]),
-    #                     qt.tensor([qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 1), qt.basis(2, 1)]),
-    #                     qt.tensor([qt.basis(2, 0), qt.basis(2, 1), qt.basis(2, 0), qt.basis(2, 0)]),
-    #                     qt.tensor([qt.basis(2, 0), qt.basis(2, 1), qt.basis(2, 0), qt.basis(2, 1)]),
-    #                     qt.tensor([qt.basis(2, 1), qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 0)]),
-    #                     qt.tensor([qt.basis(2, 1), qt.basis(2, 0), qt.basis(2, 0), qt.basis(2, 1)])]
-    # Sz_Tot_comp = np.array([1.6257476076555024, 1.3742523923444976, 0.6257476076555024, 0.3742523923444976, 0.6257476076555024, 0.3742523923444976, 0.6257476076555024, 0.3742523923444976])
-
-    St_theta_Mat = np.zeros((len(basisStates_comp), tgrid.size))
-
-    for indb, bint in enumerate(basisStates_comp):
-        bstate = basisVector(bint, spinBasis)
-        state_prob = np.zeros((bstate.size, tgrid.size), dtype=float)
-        result = qt.mesolve(H, qt.Qobj(bstate) * qt.Qobj(bstate).dag(), tgrid, c_op_list)
-
-        # state_prob = np.zeros((2**N, tgrid.size), dtype=float)
-        # result = qt.mesolve(H, bint * bint.dag(), tgrid, c_op_list)
-        for indt, t in enumerate(tgrid):
-            state_prob[:, indt] = np.abs(np.diag(result.states[indt].full()))
-            # U_t = get_U(diagH, P, t); state_prob[:, indt] = np.abs(np.dot(U_t, bstate))**2
-
-        ave_Sz_Tot = np.sum(np.multiply(Sz_Tot[:, None], state_prob), axis=0)
-
-        St_theta_Mat[indb, :] = ave_Sz_Tot * Sz_Tot_comp[indb] / spinBasis.Ns  # each row is a term in the sum (=from one basis state) of S(t|\theta)
-
-    St_theta = 2 * np.sum(St_theta_Mat, axis=0)  # sums all terms (each term is the contribution from an initial basis state). Factor of 2 comes from the negative magnetization sector. For some reason St_theta[0] is a little off from the sum rule (N/4) when we compute only over the positive magnetization sector...
-
-    ResponseFunc_da = xr.DataArray(St_theta, coords=[tgrid], dims=['t'])
-
-    data_dict = {'ResponseFunc': ResponseFunc_da}
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
+    sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
+    sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
+
+    H, c_op_list = makeGenerator_xxz(operator_list, J, Delta, hiList, kappa, gamma_amp, gamma_phase)
+
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
+
+    L = qt.liouvillian(H,c_op_list)
+    dt = tgrid[1] - tgrid[0]
+    V_dt = (dt*L).expm()
+
+    rho0_ket = 2*sx_list[1]*qt.tensor(qt.basis(2,0), qt.basis(2,0))
+    
+    # rho_u = qt.tensor(qt.basis(2,0), qt.basis(2,0))
+    # rho_d = 2*sx_list[0]*2*sx_list[1]*rho_u
+    # rho_p = (1/np.sqrt(2))*(2*sx_list[1]*rho_u + 2*sx_list[0]*rho_u)
+    # rho0_ket = (1/2)*(rho_u - rho_d + 1j*np.sqrt(2)*rho_p)
+
+    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket))
+    V_t = qt.to_super(qt.identity(dim_list2))
+
+    state_prob = np.zeros((tgrid.size), dtype=float)
+    Sy = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        rho = qt.vector_to_operator(V_t*rho0)
+        state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+        Sy[indt] = qt.expect(rho,sy_tot)
+        V_t = V_dt*V_t
+
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
     coords_dict = {'t': tgrid}
-    attrs_dict = {'Nspins': N}
+    attrs_dict = {'J': J, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
 
-    trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
-    return trueED_ds
 
-
-def trueSim_zerofield_aveHam(tgrid, spinBasis, HParams, weights, shotNoiseParams, lowfield=False, posMag=True):
-    ShotNoise = shotNoiseParams['ShotNoise']; N_ShotNoise = shotNoiseParams['N_ShotNoise']
-    [JijList, hiList] = HParams
-    H_theta = scHamiltonian(spinBasis, JijList, hiList, chemicalShifts=lowfield)
-    H_orig = fullHamiltonian(spinBasis, JijList, hiList, chemicalShifts=lowfield)
-    diagH, P = H_theta.eigh()
-    diagH_orig, P_orig = H_orig.eigh()
-
-    normH = np.linalg.norm(H_theta.todense())
-    maxH = np.max(np.abs(diagH))
-
-    N = spinBasis.L
+def xxzSim_pair_qT_aveHam(tgrid, J_S, J_I, hiList, Delta, alpha, kappa, gamma_amp, gamma_phase):
+    N = 2
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
 
     pulseAngle = np.pi / 2
-    ham_Rx = hamiltonian([["x", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rx, P_Rx = ham_Rx.eigh()
-    ham_Ry = hamiltonian([["y", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.complex128, check_symm=False, check_herm=False); diagH_Ry, P_Ry = ham_Ry.eigh()
-    ham_Rz = hamiltonian([["z", [[1, i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False); diagH_Rz, P_Rz = ham_Rz.eigh()
-    Rx = P_Rx @ np.diag(np.exp(-1j * pulseAngle * diagH_Rx)) @ np.conj(P_Rx).T; Rx_m = P_Rx @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rx)) @ np.conj(P_Rx).T
-    Ry = P_Ry @ np.diag(np.exp(-1j * pulseAngle * diagH_Ry)) @ np.conj(P_Ry).T; Ry_m = P_Ry @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Ry)) @ np.conj(P_Ry).T
-    Rz = P_Rz @ np.diag(np.exp(-1j * pulseAngle * diagH_Rz)) @ np.conj(P_Rz).T; Rz_m = P_Rz @ np.diag(np.exp(-1j * (-1 * pulseAngle) * diagH_Rz)) @ np.conj(P_Rz).T
 
-    ham_Rz_weighted = hamiltonian([["z", [[weights[i], i] for i in np.arange(N)]]], [], basis=spinBasis, dtype=np.float64, check_symm=False, check_herm=False)
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
+    sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
+    sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
 
-    # Sz_Tot = SzTot(spinBasis)
-    Sz_Tot = np.diag(ham_Rz_weighted.todense())
-    if posMag:
-        magMask = np.logical_not(np.isclose(Sz_Tot, 0.0, atol=1e-3)) * (Sz_Tot > 0.0)
-        Sz_Tot_comp = Sz_Tot[magMask]
-        basisStates_comp = spinBasis.states[magMask]
-    else:
-        Sz_Tot_comp = Sz_Tot
-        basisStates_comp = spinBasis.states
+    H, c_op_list = makeGenerator_native(operator_list, J_S, J_I, hiList, kappa, gamma_amp, gamma_phase)
 
-    St_theta_Mat = np.zeros((basisStates_comp.size, tgrid.size))
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
 
-    cycleRed = 100; timestep = tgrid[1] - tgrid[0]; T = timestep / cycleRed; tau = T / 6
-    U_tau = get_U(diagH, P, tau)
-    U_T = Ry @ Ry @ U_tau @ Rx @ U_tau @ Ry_m @ U_tau @ U_tau @ Ry_m @ U_tau @ Rx @ U_tau  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
-    U_dt = np.linalg.matrix_power(U_T, cycleRed)  # time-evolution for a step dt in the time grid
+    L = qt.liouvillian(H,c_op_list)
+    dt = tgrid[1] - tgrid[0]
 
-    for indb, bint in enumerate(basisStates_comp):
-        bstate = basisVector(bint, spinBasis)
+    # V_dt = (dt*L).expm()
 
-        U_t = np.eye(U_T.shape[0])
-        psi_t = np.zeros((bstate.size, tgrid.size), dtype=complex)
-        for indt, t in enumerate(tgrid):
+    alpha = (J_I * Delta + J_S * (Delta - 2))/(J_I - J_S * Delta)  # pulse anisotropy parameter
+    cycleRed = 10; T = dt / cycleRed; tau = T / (4+2*alpha)
+    V_tau = (tau*L).expm()
+    V_tau_z = (alpha*tau*L).expm()
+    V_T = sRz * sRz * V_tau_z * sRx_m * V_tau * sRy * V_tau * sRy * sRy * V_tau * sRy_m * V_tau * sRx * V_tau_z  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
+    V_dt = V_T**cycleRed
 
-            # U_tau_orig = get_U(diagH_orig, P_orig, t / 6)
-            # psi_t[:, indt] = np.dot(U_tau_orig @ U_tau_orig @ U_tau_orig @ U_tau_orig @ U_tau_orig @ U_tau_orig, bstate)
+    rho0_ket = 2*sx_list[1]*qt.tensor(qt.basis(2,0), qt.basis(2,0))
+    
+    # rho_u = qt.tensor(qt.basis(2,0), qt.basis(2,0))
+    # rho_d = 2*sx_list[0]*2*sx_list[1]*rho_u
+    # rho_p = (1/np.sqrt(2))*(2*sx_list[1]*rho_u + 2*sx_list[0]*rho_u)
+    # rho0_ket = (1/2)*(rho_u - rho_d + 1j*np.sqrt(2)*rho_p)
 
-            # U_t = np.linalg.matrix_power(U_dt, indt)
-            psi_t[:, indt] = np.dot(U_t, bstate)
-            U_t = U_dt @ U_t
+    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket))
+    V_t = qt.to_super(qt.identity(dim_list2))
 
-        ave_Sz_Tot = aveSzTot(psi_t, Sz_Tot, ShotNoise, N_ShotNoise)
-        # print(ave_Sz_Tot)
-        St_theta_Mat[indb, :] = ave_Sz_Tot * Sz_Tot_comp[indb] / spinBasis.Ns  # each row is a term in the sum (=from one basis state) of S(t|\theta)
+    state_prob = np.zeros((tgrid.size), dtype=float)
+    Sy = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        rho = qt.vector_to_operator(V_t*rho0)
+        state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+        Sy[indt] = qt.expect(rho,sy_tot)
+        V_t = V_dt*V_t
 
-    if posMag:
-        St_theta = 2 * np.sum(St_theta_Mat, axis=0)  # sums all terms (each term is the contribution from an initial basis state). Factor of 2 comes from the negative magnetization sector. For some reason St_theta[0] is a little off from the sum rule (N/4) when we compute only over the positive magnetization sector...
-    else:
-        St_theta = np.sum(St_theta_Mat, axis=0)
-
-    ResponseFunc_da = xr.DataArray(St_theta, coords=[tgrid], dims=['t'])
-
-    hamiltonian_da = xr.DataArray(hamiltonianListToMatrix(HParams, spinBasis.L, True), coords=[np.arange(spinBasis.L), np.arange(spinBasis.L)], dims=['i', 'j'])
-
-    data_dict = {'ResponseFunc': ResponseFunc_da, 'HamiltonianMatrix': hamiltonian_da}
-    coords_dict = {'t': tgrid, 'basisStates_comp': basisStates_comp, 'basisStates_all': spinBasis.states, 'i': np.arange(spinBasis.L), 'j': np.arange(spinBasis.L)}
-    attrs_dict = {'Nspins': N}
-
-    trueED_ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
-    return trueED_ds
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'J_S': J_S, 'J_I': J_I, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
