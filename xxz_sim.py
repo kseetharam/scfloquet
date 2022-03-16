@@ -21,6 +21,9 @@ if __name__ == "__main__":
   legendsize = 12
   lw = 0.5
 
+  datapath = '/Users/kis/Desktop/temp/'
+
+
   # # # ---- XXZ simulation ----
 
   N = 4  # number of qubits. If N < 4, assumes a line of qubits. If N > 4, assumes a square grid of qubits of size sqrt(N) x sqrt(N)
@@ -28,7 +31,7 @@ if __name__ == "__main__":
   J_I = 0.2  # parasitic ZZ interaction strength of native SC Hamiltonian (MHz)
   J_S = 6  # flip-flop interaction strength of native SC Hamiltonian (MHz)
   # hiList = [0 for i  in np.arange(N)]  # qubit frequencies in MHz
-  hiList = [((-J_S + 2*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
+  hiList = [((-0.1*J_S + 2*0.1*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
 
   Delta_eff = 0.3  # anisotropy of effective XXZ Hamiltonian (in units of J_eff); leads to well-defined pulse times for values between ~[0.1, 2]
   alpha = (J_I * Delta_eff + J_S * (Delta_eff - 2))/(J_I - J_S * Delta_eff)  # pulse anisotropy parameter (tau_z = alpha * tau)
@@ -36,8 +39,9 @@ if __name__ == "__main__":
   hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
 
   tscale = 1 / J_eff  # time scale of effective dynamics in microseconds
-  tmax = 10 * tscale; dt = tscale/10
+  tmax = 1000 * tscale; dt = tscale/10
   tgrid = np.arange(0, tmax, dt)  # time grid in microseconds
+  # tgrid = tscale*np.logspace(-1,4,100)
   print(tscale, np.max(tgrid), dt)
 
   operator_list = scfuncs.getSpinOperators(N)
@@ -78,20 +82,43 @@ if __name__ == "__main__":
 
   # Grid test
 
-  tstart = timer()
-  # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
-  ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
-  print(timer() - tstart)
-  Sy = ds['Sy'].values
+  N_d = 10
 
-  tstart = timer()
-  # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
-  ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
-  print(timer() - tstart)
-  Sy_aveHam = ds_aveHam['Sy'].values
+  SFF_mat = np.zeros((N_d,tgrid.size))
+  SFF_aveHam_mat = np.zeros((N_d,tgrid.size))
+
+  start = timer()
+  for n in range(N_d):
+
+    hiList = [((-0.1*J_S + 2*0.1*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
+    hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
+
+    tstart = timer()
+    # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
+    ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
+    print(timer() - tstart)
+    SFF_mat[n,:] = ds['SFF'].values
+
+    tstart = timer()
+    # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
+    ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
+    print(timer() - tstart)
+    SFF_aveHam_mat[n,:] = ds_aveHam['SFF'].values
+
+  print(timer() - start)
+
+  SFF = np.average(SFF_mat,axis=0)
+  SFF_aveHam = np.average(SFF_aveHam_mat,axis=0)
+
+  np.save(datapath + 'SFF',SFF)
+  np.save(datapath + 'SFF_aveHam',SFF_aveHam)
+
+  # SFF = np.load(datapath + 'SFF.npy')
+  # SFF_aveHam = np.load(datapath + 'SFF_aveHam.npy')
 
   fig, ax = plt.subplots()
-  ax.plot(tgrid, Sy,linewidth=lw,color='k',linestyle='-')
-  ax.plot(tgrid, Sy_aveHam,linewidth=lw,color='r',linestyle='--')
-  # ax.set_ylim([-1.1, 1.1])
+  ax.plot(tgrid, SFF,linewidth=lw,color='k',linestyle='-')
+  ax.plot(tgrid, SFF_aveHam,linewidth=lw,color='r',linestyle='--')
+  ax.set_xscale('log')
+  ax.set_yscale('log')
   plt.show()

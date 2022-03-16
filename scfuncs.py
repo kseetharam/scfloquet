@@ -971,15 +971,18 @@ def xxzSim_qT(tgrid, N, J, Delta, hiList, kappa, gamma_amp, gamma_phase):
 
     state_prob = np.zeros((tgrid.size), dtype=float)
     Sy = np.zeros((tgrid.size), dtype=float)
+    SFF = np.zeros((tgrid.size), dtype=float)
     for indt, t in enumerate(tgrid):
-        rho = qt.vector_to_operator(V_t*rho0)
-        state_prob[indt] = np.abs(np.diag(rho.full()))[1]
-        Sy[indt] = qt.expect(rho,sy_tot)
+        SFF[indt] = np.abs(np.sum(V_t.eigenenergies()))**2
+        # rho = qt.vector_to_operator(V_t*rho0)
+        # state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+        # Sy[indt] = qt.expect(rho,sy_tot)
         V_t = V_dt*V_t
 
     state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
     Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
-    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
+    SFF_da = xr.DataArray(SFF, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da, 'SFF': SFF_da}
     coords_dict = {'t': tgrid}
     attrs_dict = {'N': N, 'J': J, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
     ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
@@ -1027,15 +1030,18 @@ def xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta, alpha, kappa, gamma_amp,
 
     state_prob = np.zeros((tgrid.size), dtype=float)
     Sy = np.zeros((tgrid.size), dtype=float)
+    SFF = np.zeros((tgrid.size), dtype=float)
     for indt, t in enumerate(tgrid):
-        rho = qt.vector_to_operator(V_t*rho0)
-        state_prob[indt] = np.abs(np.diag(rho.full()))[1]
-        Sy[indt] = qt.expect(rho,sy_tot)
+        SFF[indt] = np.abs(np.sum(V_t.eigenenergies()))**2
+        # rho = qt.vector_to_operator(V_t*rho0)
+        # state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+        # Sy[indt] = qt.expect(rho,sy_tot)
         V_t = V_dt*V_t
 
     state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
     Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
-    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
+    SFF_da = xr.DataArray(SFF, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da, 'SFF': SFF_da}
     coords_dict = {'t': tgrid}
     attrs_dict = {'N': N, 'J_S': J_S, 'J_I': J_I, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
     ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
