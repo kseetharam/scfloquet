@@ -39,7 +39,7 @@ if __name__ == "__main__":
   hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
 
   tscale = 1 / J_eff  # time scale of effective dynamics in microseconds
-  tmax = 1000 * tscale; dt = tscale/10
+  tmax = 100 * tscale; dt = tscale/10
   tgrid = np.arange(0, tmax, dt)  # time grid in microseconds
   # tgrid = tscale*np.logspace(-1,4,100)
   print(tscale, np.max(tgrid), dt)
@@ -56,69 +56,73 @@ if __name__ == "__main__":
   gamma_amp = 1/(kappa**2 * T1_exp)  # corresponds to a qubit occupation decay of exp(-t/T1) with T1 = 1/(kappa**2 * gamma_amp) where gamma \in [0, 1]
   gamma_phase = 1/(2*kappa**2 * T2_exp)  # corresponds to a qubit coherence decay of 0.5 + 0.5 * exp(-t/T2) with T2 = 1/(2*kappa**2 * gamma_phase) where gamma \in [0, 1]
 
-  # # Pair test
+  # Pair test
 
-  # tstart = timer()
-  # # ds = scfuncs.xxzSim_pair_qT(tgrid, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
-  # ds = scfuncs.xxzSim_pair_qT(tgrid, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
-  # print(timer() - tstart)
-  # state_prob = ds['state_prob'].values
-  # Sy = ds['Sy'].values
+  N = 2
+  hiList = [0 for i  in np.arange(N)]  # qubit frequencies in MHz
+  hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
 
-  # tstart = timer()
-  # # ds_aveHam = scfuncs.xxzSim_pair_qT_aveHam(tgrid, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
-  # ds_aveHam = scfuncs.xxzSim_pair_qT_aveHam(tgrid, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
-  # print(timer() - tstart)
-  # state_prob_aveHam = ds_aveHam['state_prob'].values
-  # Sy_aveHam = ds_aveHam['Sy'].values
+  tstart = timer()
+  # ds = scfuncs.xxzSim_pair_qT(tgrid, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
+  ds = scfuncs.xxzSim_pair_qT(tgrid, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
+  print(timer() - tstart)
+  state_prob = ds['state_prob'].values
+  Sy = ds['Sy'].values
 
-  # fig, ax = plt.subplots()
-  # ax.plot(tgrid, state_prob,linewidth=lw,color='b',linestyle='-')
-  # ax.plot(tgrid, state_prob_aveHam,linewidth=lw,color='r',linestyle='--')
+  tstart = timer()
+  # ds_aveHam = scfuncs.xxzSim_pair_qT_aveHam(tgrid, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
+  ds_aveHam = scfuncs.xxzSim_pair_qT_aveHam(tgrid, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
+  print(timer() - tstart)
+  state_prob_aveHam = ds_aveHam['state_prob'].values
+  Sy_aveHam = ds_aveHam['Sy'].values
+
+  fig, ax = plt.subplots()
+  ax.plot(tgrid, state_prob,linewidth=lw,color='b',linestyle='-')
+  ax.plot(tgrid, state_prob_aveHam,linewidth=lw,color='r',linestyle='--')
   # ax.plot(tgrid, Sy,linewidth=lw,color='k',linestyle='-')
   # ax.plot(tgrid, Sy_aveHam,linewidth=lw,color='g',linestyle='--')
   # ax.set_ylim([-1.1, 1.1])
-  # plt.show()
+  plt.show()
 
-  # Grid test
+  # # Grid test
 
-  N_d = 10
+  # N_d = 10
 
-  SFF_mat = np.zeros((N_d,tgrid.size))
-  SFF_aveHam_mat = np.zeros((N_d,tgrid.size))
+  # SFF_mat = np.zeros((N_d,tgrid.size))
+  # SFF_aveHam_mat = np.zeros((N_d,tgrid.size))
 
-  start = timer()
-  for n in range(N_d):
+  # start = timer()
+  # for n in range(N_d):
 
-    hiList = [((-0.1*J_S + 2*0.1*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
-    hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
+  #   hiList = [((-0.1*J_S + 2*0.1*J_S)*np.random.rand(1))[0] for i  in np.arange(N)]  # qubit frequencies in MHz
+  #   hi_eff_List = [(alpha / (alpha + 2)) * hi for hi in hiList]
 
-    tstart = timer()
-    # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
-    ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
-    print(timer() - tstart)
-    SFF_mat[n,:] = ds['SFF'].values
+  #   tstart = timer()
+  #   # ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hiList, kappa, gamma_amp, gamma_phase)
+  #   ds = scfuncs.xxzSim_qT(tgrid, N, J_eff, Delta_eff, hi_eff_List, kappa, 0, 0)
+  #   print(timer() - tstart)
+  #   SFF_mat[n,:] = ds['SFF'].values
 
-    tstart = timer()
-    # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
-    ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
-    print(timer() - tstart)
-    SFF_aveHam_mat[n,:] = ds_aveHam['SFF'].values
+  #   tstart = timer()
+  #   # ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, gamma_amp, gamma_phase)
+  #   ds_aveHam = scfuncs.xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta_eff, alpha, kappa, 0, 0)
+  #   print(timer() - tstart)
+  #   SFF_aveHam_mat[n,:] = ds_aveHam['SFF'].values
 
-  print(timer() - start)
+  # print(timer() - start)
 
-  SFF = np.average(SFF_mat,axis=0)
-  SFF_aveHam = np.average(SFF_aveHam_mat,axis=0)
+  # SFF = np.average(SFF_mat,axis=0)
+  # SFF_aveHam = np.average(SFF_aveHam_mat,axis=0)
 
-  np.save(datapath + 'SFF',SFF)
-  np.save(datapath + 'SFF_aveHam',SFF_aveHam)
+  # np.save(datapath + 'SFF',SFF)
+  # np.save(datapath + 'SFF_aveHam',SFF_aveHam)
 
   # SFF = np.load(datapath + 'SFF.npy')
   # SFF_aveHam = np.load(datapath + 'SFF_aveHam.npy')
 
-  fig, ax = plt.subplots()
-  ax.plot(tgrid, SFF,linewidth=lw,color='k',linestyle='-')
-  ax.plot(tgrid, SFF_aveHam,linewidth=lw,color='r',linestyle='--')
-  ax.set_xscale('log')
-  ax.set_yscale('log')
-  plt.show()
+  # fig, ax = plt.subplots()
+  # ax.plot(tgrid/tscale, SFF,linewidth=lw,color='k',linestyle='-')
+  # ax.plot(tgrid/tscale, SFF_aveHam,linewidth=lw,color='r',linestyle='--')
+  # ax.set_xscale('log')
+  # ax.set_yscale('log')
+  # plt.show()
