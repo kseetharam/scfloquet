@@ -990,7 +990,39 @@ def xxzSim_qT(tgrid, N, J, Delta, hiList, kappa, gamma_amp, gamma_phase):
     return ds
 
 
-def xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta, alpha, kappa, gamma_amp, gamma_phase):
+def xxzSim_qT_unitary(tgrid, N, J, Delta, hiList):
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
+
+    pulseAngle = np.pi / 2
+
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
+
+    H = makeGenerator_Hxxz(operator_list, J, Delta, hiList)
+    
+    dt = tgrid[1] - tgrid[0]
+    U_dt = (-1j*dt*H).expm()
+
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()    
+    U_t = qt.identity(dim_list2)
+
+    SFF = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        SFF[indt] = np.abs(np.sum(U_t.eigenenergies()))**2
+        U_t = U_dt*U_t
+
+    SFF_da = xr.DataArray(SFF, coords=[tgrid], dims=['t'])
+    data_dict = {'SFF': SFF_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'N': N, 'J': J, 'Delta': Delta}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
+
+
+def xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta, kappa, gamma_amp, gamma_phase):
     operator_list = getSpinOperators(N)
     si_list, sx_list, sy_list, sz_list = operator_list
     sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
@@ -1044,6 +1076,45 @@ def xxzSim_qT_aveHam(tgrid, N, J_S, J_I, hiList, Delta, alpha, kappa, gamma_amp,
     data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da, 'SFF': SFF_da}
     coords_dict = {'t': tgrid}
     attrs_dict = {'N': N, 'J_S': J_S, 'J_I': J_I, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
+
+
+def xxzSim_qT_aveHam_unitary(tgrid, N, J_S, J_I, hiList, Delta):
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
+
+    pulseAngle = np.pi / 2
+
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
+
+    H = makeGenerator_Hnative(operator_list, J_S, J_I, hiList)
+    
+    dt = tgrid[1] - tgrid[0]
+    # U_dt = (-1j*dt*H).expm()
+
+    alpha = (J_I * Delta + J_S * (Delta - 2))/(J_I - J_S * Delta)  # pulse anisotropy parameter
+    cycleRed = 10; T = dt / cycleRed; tau = T / (4+2*alpha)
+    U_tau = (-1j*tau*H).expm()
+    U_tau_z = (-1j*alpha*tau*H).expm()
+    U_T = Rz * Rz * U_tau_z * Rx_m * U_tau * Ry * U_tau * Ry * Ry * U_tau * Ry_m * U_tau * Rx * U_tau_z  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
+    U_dt = U_T**cycleRed
+
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()    
+    U_t = qt.identity(dim_list2)
+
+    SFF = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        SFF[indt] = np.abs(np.sum(U_t.eigenenergies()))**2
+        U_t = U_dt*U_t
+
+    SFF_da = xr.DataArray(SFF, coords=[tgrid], dims=['t'])
+    data_dict = {'SFF': SFF_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'N': N, 'J_S': J_S, 'J_I': J_I, 'Delta': Delta}
     ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
     
     return ds
