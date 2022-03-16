@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
   # # # ---- XXZ simulation ----
 
-  N = 9  # number of qubits. If N < 4, assumes a line of qubits. If N > 4, assumes a square grid of qubits of size sqrt(N) x sqrt(N)
+  N = 4  # number of qubits. If N < 4, assumes a line of qubits. If N > 4, assumes a square grid of qubits of size sqrt(N) x sqrt(N)
 
   J_I = 0.2  # parasitic ZZ interaction strength of native SC Hamiltonian (MHz)
   J_S = 6  # flip-flop interaction strength of native SC Hamiltonian (MHz)
