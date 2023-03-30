@@ -65,7 +65,7 @@ if __name__ == "__main__":
   # This is equivalent to rescaling H->1e6*H and t->1e-6*t so that H*t is invariant. Therefore, for the purposes of setting the dissipation rate, we interpret tgrid as values in microseconds.
 
   T1_exp = 20  # T1 time in microseconds
-  T2_exp = 1   # T2 time in microseconds
+  T2_exp = 3   # T2 time in microseconds
 
   kappa = 10  # sets the scale of dissipation as 10 MHz, with the smalled decoherence time implementable by the channel being T = 1/kappa = 0.1 microseconds
   gamma_amp = 1/(kappa**2 * T1_exp)  # corresponds to a qubit occupation decay of exp(-t/T1) with T1 = 1/(kappa**2 * gamma_amp) where gamma \in [0, 1]
