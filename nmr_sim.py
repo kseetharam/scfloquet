@@ -76,16 +76,16 @@ if __name__ == "__main__":
 
   # tgrid_noisefit = timestep * np.array([i for i in range(10*npoints)])
 
-  # T1_ds_phase = nfuncs.T1sim(tgrid_noisefit, kappa, 0, gamma_phase) 
-  # T2_ds_phase = nfuncs.T2sim(tgrid_noisefit, kappa, 0, gamma_phase) 
+  # T1_ds_phase = scfuncs.T1sim(tgrid_noisefit, kappa, 0, gamma_phase) 
+  # T2_ds_phase = scfuncs.T2sim(tgrid_noisefit, kappa, 0, gamma_phase) 
 
   # fig2, ax2 = plt.subplots()
   # ax2.plot(tgrid_noisefit, T1_ds_phase['state_prob'].values,'k-')
   # ax2.plot(tgrid_noisefit, T2_ds_phase['state_prob'].values,'g-')
   # ax2.plot(tgrid_noisefit, 0.5 + 0.5 * np.exp(-1*tgrid_noisefit/T2_exp),'r--')
 
-  # T1_ds_amp = nfuncs.T1sim(tgrid_noisefit, kappa, gamma_amp, 0) 
-  # T2_ds_amp = nfuncs.T2sim(tgrid_noisefit, kappa, gamma_amp, 0) 
+  # T1_ds_amp = scfuncs.T1sim(tgrid_noisefit, kappa, gamma_amp, 0) 
+  # T2_ds_amp = scfuncs.T2sim(tgrid_noisefit, kappa, gamma_amp, 0) 
 
   # fig2, ax2 = plt.subplots()
   # ax2.plot(tgrid_noisefit, T1_ds_amp['state_prob'].values,'k-')
@@ -97,37 +97,37 @@ if __name__ == "__main__":
   # Noiseless simulation (true Hamiltonian)
 
   tstart = timer()
-  trueED_ds = nfuncs.trueSim_complex(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
+  trueED_ds = scfuncs.trueSim_complex(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
   print(timer() - tstart)
   fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
+  fid_apo = scfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   spec_noiseless = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # # Noiseless simulation (average Hamiltonian)
 
   # tstart = timer()
-  # trueED_ds = nfuncs.trueSim_complex_aveHam(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
+  # trueED_ds = scfuncs.trueSim_complex_aveHam(tgrid, spinBasis, HParams, shotNoiseParams_true, 1)
   # print(timer() - tstart)
   # fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
+  # fid_apo = scfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   # spec_noiseless_aveHam = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # # Noisy simulation (true Hamiltonian)
 
   # tstart = timer()
-  # trueED_ds = nfuncs.trueSim_complex_qT(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
+  # trueED_ds = scfuncs.trueSim_complex_qT(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
   # print(timer() - tstart)
   # fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  # fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
+  # fid_apo = scfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   # spec_noisy = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
   # Noisy simulation (average Hamiltonian)
 
   tstart = timer()
-  trueED_ds = nfuncs.trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
+  trueED_ds = scfuncs.trueSim_complex_qT_aveHam(tgrid, spinBasis, HParams, kappa, gamma_amp, gamma_phase)
   print(timer() - tstart)
   fid_raw = trueED_ds['ResponseFunc_Real'].values + 1j * trueED_ds['ResponseFunc_Imag'].values
-  fid_apo = nfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
+  fid_apo = scfuncs.apodize_exp1d(fid_raw - np.mean(fid_raw), apo_param)
   spec_noisy_aveHam = np.real(np.fft.fftshift(np.fft.fft(fid_apo)))
 
 
