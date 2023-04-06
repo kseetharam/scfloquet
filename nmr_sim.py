@@ -57,7 +57,7 @@ if __name__ == "__main__":
   gridParams = {'spinBasis': spinBasis, 'tgrid': tgrid}
   shotNoiseParams_true = {'ShotNoise': False, 'N_ShotNoise': 10000}
 
-  print(timestep)
+  print(timestep, tgrid[-1])
 
   # Noise parameters
 
