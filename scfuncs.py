@@ -302,6 +302,18 @@ def makeGenerator_Hxxz(operator_list, J, Delta, hiList):
     return H
 
 
+def makeGenerator_Hchem(operator_list, JijList):
+    si_list, sx_list, sy_list, sz_list = operator_list
+
+    H = 0
+
+    for tup in JijList:
+        Jij, i, j = tup
+        H += Jij * (sx_list[i] * sx_list[j] + sy_list[i] * sy_list[j] + sz_list[i] * sz_list[j])
+
+    return H
+
+
 def makeGenerator_depolarize(operator_list, kappa, gamma):
     if gamma == 0:
         return []
@@ -389,6 +401,18 @@ def makeGenerator_xxz(operator_list, J, Delta, hiList, kappa, gamma_amp, gamma_p
     si_list, sx_list, sy_list, sz_list = operator_list
 
     H = makeGenerator_Hxxz(operator_list, J, Delta, hiList)
+
+    c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
+    c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
+    c_op_list = c_op_list_amp + c_op_list_phase
+
+    return H, c_op_list
+
+
+def makeGenerator_chem(operator_list, JijList, kappa, gamma_amp, gamma_phase):
+    si_list, sx_list, sy_list, sz_list = operator_list
+
+    H = makeGenerator_Hchem(operator_list, JijList)
 
     c_op_list_amp = makeGenerator_ampdamp(operator_list, kappa, gamma_amp)
     c_op_list_phase = makeGenerator_phasedamp(operator_list, kappa, gamma_phase)
@@ -1115,6 +1139,123 @@ def xxzSim_qT_aveHam_unitary(tgrid, N, J_S, J_I, hiList, Delta):
     data_dict = {'SFF': SFF_da}
     coords_dict = {'t': tgrid}
     attrs_dict = {'N': N, 'J_S': J_S, 'J_I': J_I, 'Delta': Delta}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
+
+
+def chemSim_qT(tgrid, N, JijList, kappa, gamma_amp, gamma_phase):
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
+
+    H, c_op_list = makeGenerator_chem(operator_list, JijList, kappa, gamma_amp, gamma_phase)
+
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
+
+    L = qt.liouvillian(H,c_op_list)
+    dt = tgrid[1] - tgrid[0]
+    V_dt = (dt*L).expm()
+
+    state_prep = []
+    for m in range(N):
+        state_prep.append(qt.basis(2,0))
+    rho0_ket = qt.tensor(state_prep)
+    rho0_ket = (rho0_ket + sx_list[0]*rho0_ket)/np.sqrt(2)  
+    
+    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket))
+    V_t = qt.to_super(qt.identity(dim_list2))
+
+    # state_prob = np.zeros((tgrid.size), dtype=float)
+    # Sy = np.zeros((tgrid.size), dtype=float)
+    # SFF = np.zeros((tgrid.size), dtype=float)
+    # for indt, t in enumerate(tgrid):
+    #     SFF[indt] = np.abs(np.sum(V_t.eigenenergies()))**2
+    #     # rho = qt.vector_to_operator(V_t*rho0)
+    #     # state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+    #     # Sy[indt] = qt.expect(rho,sy_tot)
+    #     V_t = V_dt*V_t
+
+    # state_prob_re = np.zeros((bstate.size, tgrid.size), dtype=float)
+    # state_prob_im = np.zeros((bstate.size, tgrid.size), dtype=float)
+    # for indt, t in enumerate(tgrid):
+    #     rho = V_t*rho0
+    #     rho_re = qt.vector_to_operator(rho).full()
+    #     rho_im = qt.vector_to_operator(sRx*rho).full()
+    #     state_prob_re[:, indt] = np.abs(np.diag(rho_re))
+    #     state_prob_im[:, indt] = np.abs(np.diag(rho_im))
+    #     V_t = V_dt*V_t
+
+    # ave_Sz_Tot_re = np.sum(np.multiply(Sz_Tot[:, None], state_prob_re), axis=0)
+    # ave_Sz_Tot_im = np.sum(np.multiply(Sz_Tot[:, None], state_prob_im), axis=0)
+    # ave_Sz_Tot = ave_Sz_Tot_re + 1j * ave_Sz_Tot_im
+
+
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'N': N, 'J': J, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
+    
+    return ds
+
+
+def chemSim_qT_aveHam(tgrid, N, JijList, kappa, gamma_amp, gamma_phase):
+    operator_list = getSpinOperators(N)
+    si_list, sx_list, sy_list, sz_list = operator_list
+    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
+
+    pulseAngle = np.pi / 2
+
+    Rx, Ry, Rz = makeRotations(operator_list, pulseAngle)
+    Rx_m, Ry_m, Rz_m = makeRotations(operator_list, -1*pulseAngle)
+    sRx = qt.to_super(Rx); sRy = qt.to_super(Ry); sRz = qt.to_super(Rz)
+    sRx_m = qt.to_super(Rx_m); sRy_m = qt.to_super(Ry_m); sRz_m = qt.to_super(Rz_m)
+
+    H, c_op_list = makeGenerator_native(operator_list, J_S, J_I, hiList, kappa, gamma_amp, gamma_phase)
+
+    dim_list1 = np.ones(N,dtype='int').tolist()
+    dim_list2 = (2*np.ones(N,dtype='int')).tolist()
+
+    L = qt.liouvillian(H,c_op_list)
+    dt = tgrid[1] - tgrid[0]
+
+    V_dt = (dt*L).expm()
+
+    alpha = (J_I * Delta + J_S * (Delta - 2))/(J_I - J_S * Delta)  # pulse anisotropy parameter
+    cycleRed = 10; T = dt / cycleRed; tau = T / (4+2*alpha)
+    V_tau = (tau*L).expm()
+    V_tau_z = (alpha*tau*L).expm()
+    V_T = sRz * sRz * V_tau_z * sRx_m * V_tau * sRy * V_tau * sRy * sRy * V_tau * sRy_m * V_tau * sRx * V_tau_z  # time-evolution for a total cycle time T = dt / cycleRed. Symmetric Heisenberg + x-disorder
+    V_dt = V_T**cycleRed
+
+    state_prep = []
+    for m in range(N):
+        state_prep.append(qt.basis(2,0))
+    rho0_ket = qt.tensor(state_prep)
+    rho0_ket = (rho0_ket + sx_list[0]*rho0_ket)/np.sqrt(2)  
+
+    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket))
+    V_t = qt.to_super(qt.identity(dim_list2))
+
+    state_prob = np.zeros((tgrid.size), dtype=float)
+    Sy = np.zeros((tgrid.size), dtype=float)
+    SFF = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        SFF[indt] = np.abs(np.sum(V_t.eigenenergies()))**2
+        # rho = qt.vector_to_operator(V_t*rho0)
+        # state_prob[indt] = np.abs(np.diag(rho.full()))[1]
+        # Sy[indt] = qt.expect(rho,sy_tot)
+        V_t = V_dt*V_t
+
+    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
+    Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
+    SFF_da = xr.DataArray(SFF, coords=[tgrid], dims=['t'])
+    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da, 'SFF': SFF_da}
+    coords_dict = {'t': tgrid}
+    attrs_dict = {'N': N, 'J_S': J_S, 'J_I': J_I, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
     ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
     
     return ds
