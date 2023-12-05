@@ -1147,7 +1147,14 @@ def xxzSim_qT_aveHam_unitary(tgrid, N, J_S, J_I, hiList, Delta):
 def chemSim_qT(tgrid, N, JijList, kappa, gamma_amp, gamma_phase):
     operator_list = getSpinOperators(N)
     si_list, sx_list, sy_list, sz_list = operator_list
-    sx_tot = sx_list[0] + sx_list[1]; sy_tot = sy_list[0] + sy_list[1]; sz_tot = sz_list[0] + sz_list[1];
+
+    sz_total = 0 # create total Sz operator for data qubits (all qubits except ancilla)
+    for n in np.arange(1,N):
+        sz_total += sz_list[n]
+    obs_x = sz_total*sx_list[0] # create measurement observable Sz_data * Sx_ancilla
+    obs_y = sz_total*sy_list[0] # create measurement observable Sz_data * Sy_ancilla
+    cz01 = ((si_list[0] - 2*sz_list[0])/2)*2*sz_list[1] # creates CZ gate controlled by qubit 0 (ancilla) acting on qubit 1
+    had0 = np.sqrt(2)*(2*sx_list[0])*(2*sy_list[0]).sqrtm() # creates Hadamard gate acting on qubit 0 (ancilla)
 
     H, c_op_list = makeGenerator_chem(operator_list, JijList, kappa, gamma_amp, gamma_phase)
 
@@ -1160,43 +1167,29 @@ def chemSim_qT(tgrid, N, JijList, kappa, gamma_amp, gamma_phase):
 
     state_prep = []
     for m in range(N):
-        state_prep.append(qt.basis(2,0))
-    rho0_ket = qt.tensor(state_prep)
-    rho0_ket = (rho0_ket + sx_list[0]*rho0_ket)/np.sqrt(2)  
-    
-    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket))
+        state = (qt.basis(2,0)+qt.basis(2,1))/np.sqrt(2) # qt.basis(2,0) = |0> (+1 Sz eigenstate) and qt.basis(2,1) = |1> (-1 Sz eigenstate)
+        state_prep.append(state)
+    rho0_ket = qt.tensor(state_prep) # prepare system with all qubits (including ancilla) in state |+>
+    rho0_ket = cz01 * rho0_ket # apply CZ gate between ancilla and qubit 1
+
+    rho0 = qt.operator_to_vector(qt.ket2dm(rho0_ket)) # turn initial state from pure state to density matrix
     V_t = qt.to_super(qt.identity(dim_list2))
+    had0_super = qt.to_super(had0)
 
-    # state_prob = np.zeros((tgrid.size), dtype=float)
-    # Sy = np.zeros((tgrid.size), dtype=float)
-    # SFF = np.zeros((tgrid.size), dtype=float)
-    # for indt, t in enumerate(tgrid):
-    #     SFF[indt] = np.abs(np.sum(V_t.eigenenergies()))**2
-    #     # rho = qt.vector_to_operator(V_t*rho0)
-    #     # state_prob[indt] = np.abs(np.diag(rho.full()))[1]
-    #     # Sy[indt] = qt.expect(rho,sy_tot)
-    #     V_t = V_dt*V_t
+    obs_x_Vals = np.zeros((tgrid.size), dtype=float)
+    obs_y_Vals = np.zeros((tgrid.size), dtype=float)
+    for indt, t in enumerate(tgrid):
+        rho = V_t*rho0
+        rho = qt.vector_to_operator(had0_super*rho)
+        obs_x_Vals[indt] = qt.expect(obs_x,rho)
+        obs_y_Vals[indt] = qt.expect(obs_y,rho)
+        V_t = V_dt*V_t
 
-    # state_prob_re = np.zeros((bstate.size, tgrid.size), dtype=float)
-    # state_prob_im = np.zeros((bstate.size, tgrid.size), dtype=float)
-    # for indt, t in enumerate(tgrid):
-    #     rho = V_t*rho0
-    #     rho_re = qt.vector_to_operator(rho).full()
-    #     rho_im = qt.vector_to_operator(sRx*rho).full()
-    #     state_prob_re[:, indt] = np.abs(np.diag(rho_re))
-    #     state_prob_im[:, indt] = np.abs(np.diag(rho_im))
-    #     V_t = V_dt*V_t
-
-    # ave_Sz_Tot_re = np.sum(np.multiply(Sz_Tot[:, None], state_prob_re), axis=0)
-    # ave_Sz_Tot_im = np.sum(np.multiply(Sz_Tot[:, None], state_prob_im), axis=0)
-    # ave_Sz_Tot = ave_Sz_Tot_re + 1j * ave_Sz_Tot_im
-
-
-    state_prob_da = xr.DataArray(state_prob, coords=[tgrid], dims=['t'])
-    Sy_da = xr.DataArray(Sy, coords=[tgrid], dims=['t'])
-    data_dict = {'state_prob': state_prob_da, 'Sy': Sy_da}
+    obs_x_da = xr.DataArray(obs_x_Vals, coords=[tgrid], dims=['t'])
+    obs_y_da = xr.DataArray(obs_x_Vals, coords=[tgrid], dims=['t'])
+    data_dict = {'obs_x': obs_x_da, 'obs_y': obs_y_da}
     coords_dict = {'t': tgrid}
-    attrs_dict = {'N': N, 'J': J, 'Delta': Delta, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
+    attrs_dict = {'N': N, 'kappa': kappa, 'gamma_amp': gamma_amp, 'gamma_phase':gamma_phase}
     ds = xr.Dataset(data_dict, coords=coords_dict, attrs=attrs_dict)
     
     return ds

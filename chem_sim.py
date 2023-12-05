@@ -23,22 +23,22 @@ if __name__ == "__main__":
 
   N = 4  # Number of qubits indexed i=0,...,N-1 with 0 corresponding to the ancilla qubit
 
-  JijList_desired = [[100, 1, 2], [115, 2, 3]]  # Desired Heisenberg interaction strengths (MHz) in form [Jij, i, j]
+  JijList_desired = [[15, 1, 2], [21, 2, 3]]  # Desired Heisenberg interaction strengths (MHz) in form [Jij, i, j]
   JijList_sc = []  # Required flip-flop interaction strengths (MHz) between physical qubits. Note that we ignore parasitic ZZ interactions (~0.2 MHz each).
   for tup in JijList_desired:
     [val, i, j] = tup
     JijList_sc.append([3 * val / 2, i, j])
   hiList_sc = [[0.0, 0], [0.4, 1], [0.7, 2], [1.1, 3]]  # physical qubit frequencies (MHz) in rotating frame
 
-  tscale = 1 / 100  # time scale (microseconds) of effective dynamics
+  tscale = 1 / 10  # time scale (0.1 microseconds) of effective dynamics
   tmax = 10 * tscale; dt = tscale/10
   tgrid = np.arange(0, tmax, dt)  # time grid (microseconds)
   print(tscale, np.max(tgrid), dt)
 
   # Noise parameters
 
-  T1_exp = 15  # T1 time (microseconds)
-  T2_exp = 3   # T2 time (microseconds)
+  T1_exp = 10  # T1 time (microseconds)
+  T2_exp = 1   # T2 time (microseconds)
 
   kappa = 10  # sets the scale of dissipation as 10 MHz, with the smalled decoherence time implementable by the channel being T = 1/kappa = 0.1 microseconds
   gamma_amp = 1/(kappa**2 * T1_exp)  # corresponds to a qubit occupation decay of exp(-t/T1) with T1 = 1/(kappa**2 * gamma_amp) where gamma \in [0, 1]
@@ -68,7 +68,8 @@ if __name__ == "__main__":
 
   # Simulation
 
-  # operator_list = scfuncs.getSpinOperators(N)
+  operator_list = scfuncs.getSpinOperators(N)
+  si_list, sx_list, sy_list, sz_list = operator_list
   # Hchem = scfuncs.makeGenerator_Hchem(operator_list, JijList_desired)
   # Hsc = scfuncs.makeGenerator_Hsc(operator_list, JijList_sc, hiList_sc)
 
@@ -76,4 +77,10 @@ if __name__ == "__main__":
   Hchem_ds = scfuncs.chemSim_qT(tgrid, N, JijList_desired, kappa, gamma_amp, gamma_phase)
   print(timer() - tstart)
 
+  obs_x = Hchem_ds['obs_x'].values
+  obs_y = Hchem_ds['obs_y'].values
 
+  fig, ax = plt.subplots()
+  ax.plot(tgrid,obs_x)
+  ax.plot(tgrid,obs_y)
+  plt.show()
