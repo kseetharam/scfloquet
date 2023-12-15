@@ -31,14 +31,17 @@ if __name__ == "__main__":
   hiList_sc = [[0.0, 0], [0.4, 1], [0.7, 2], [1.1, 3]]  # physical qubit frequencies (MHz) in rotating frame
 
   tscale = 1 / 10  # time scale (0.1 microseconds) of effective dynamics
-  tmax = 10 * tscale; dt = tscale/10
+  tmax = 100 * tscale; dt = tscale/10
   tgrid = np.arange(0, tmax, dt)  # time grid (microseconds)
   print(tscale, np.max(tgrid), dt)
 
   # Noise parameters
 
-  T1_exp = 10  # T1 time (microseconds)
-  T2_exp = 1   # T2 time (microseconds)
+  # T1_exp = 10  # T1 time (microseconds)
+  # T2_exp = 1   # T2 time (microseconds)
+
+  T1_exp = 1000  # T1 time (microseconds)
+  T2_exp = 1000  # T2 time (microseconds)
 
   kappa = 10  # sets the scale of dissipation as 10 MHz, with the smalled decoherence time implementable by the channel being T = 1/kappa = 0.1 microseconds
   gamma_amp = 1/(kappa**2 * T1_exp)  # corresponds to a qubit occupation decay of exp(-t/T1) with T1 = 1/(kappa**2 * gamma_amp) where gamma \in [0, 1]
@@ -83,4 +86,5 @@ if __name__ == "__main__":
   fig, ax = plt.subplots()
   ax.plot(tgrid,obs_x)
   ax.plot(tgrid,obs_y)
+  ax.set_xlabel(r'Time [$\mu$s]')
   plt.show()
